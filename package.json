@@ -1,0 +1,23 @@
+{
+  "name": "mini-record",
+  "version": "1.0.0",
+  "description": "每日记录与周总结应用 - 基于 Vue3 + uni-app",
+  "main": "main.js",
+  "scripts": {
+    "dev": "echo '请在 HBuilderX 中运行项目'",
+    "build": "echo '请在 HBuilderX 中打包项目'"
+  },
+  "keywords": [
+    "uni-app",
+    "vue3",
+    "pinia",
+    "deepseek",
+    "daily-record",
+    "weekly-summary"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "pinia": "^2.3.1"
+  }
+}
