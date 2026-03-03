@@ -19,6 +19,12 @@
           本周
         </button>
       </view>
+
+      <view class="prompt-action">
+        <button class="prompt-btn" size="mini" @click="openPromptEditor">
+          Prompt
+        </button>
+      </view>
       
       <button 
         class="generate-btn" 
@@ -111,6 +117,26 @@
         </view>
       </view>
     </uni-popup>
+
+    <!-- Prompt 编辑弹窗 -->
+    <uni-popup ref="promptPopup" type="center">
+      <view class="prompt-popup">
+        <view class="prompt-header">
+          <text class="prompt-title">自定义总结 Prompt</text>
+        </view>
+        <textarea
+          class="prompt-textarea"
+          v-model="promptTemplate"
+          maxlength="2000"
+          placeholder="请输入 Prompt 模板，使用 {{records}} 代表每周记录内容"
+        />
+        <text class="prompt-tip">提示：请保留占位符 { {records} }（无空格）用于插入本周记录。</text>
+        <view class="prompt-footer">
+          <button class="popup-btn" size="mini" @click="resetPromptTemplate">恢复默认</button>
+          <button class="popup-btn primary" size="mini" @click="savePromptTemplate">保存</button>
+        </view>
+      </view>
+    </uni-popup>
     
     <!-- 加载提示 -->
     <uni-popup ref="loadingPopup" type="center" :mask-click="false">
@@ -126,14 +152,24 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRecordStore } from '@/stores/recordStore.js'
-import { getWeekRange, formatDate } from '@/utils/deepseek.js'
-import { getRecordsByRange } from '@/utils/storage.js'
+import {
+  getWeekRange,
+  formatDate,
+  DEFAULT_WEEKLY_SUMMARY_PROMPT
+} from '@/utils/deepseek.js'
+import {
+  getRecordsByRange,
+  getSummaryPromptTemplate,
+  saveSummaryPromptTemplate,
+  clearSummaryPromptTemplate
+} from '@/utils/storage.js'
 
 const recordStore = useRecordStore()
 
 // 组件引用
 const detailPopup = ref(null)
 const loadingPopup = ref(null)
+const promptPopup = ref(null)
 
 // 状态
 const selectedWeekOffset = ref(0) // 0=本周, -1=上周
@@ -142,6 +178,7 @@ const currentDetail = ref({
   summary: '',
   records: []
 })
+const promptTemplate = ref('')
 
 // 计算属性
 const loading = computed(() => recordStore.loading)
@@ -243,6 +280,58 @@ function closeDetail() {
   detailPopup.value.close()
 }
 
+// 打开 Prompt 编辑器
+function openPromptEditor() {
+  promptTemplate.value = getSummaryPromptTemplate() || DEFAULT_WEEKLY_SUMMARY_PROMPT
+  promptPopup.value.open()
+}
+
+// 保存 Prompt 模板
+function savePromptTemplate() {
+  const template = (promptTemplate.value || '').trim()
+
+  if (!template) {
+    uni.showToast({
+      title: 'Prompt 不能为空',
+      icon: 'none'
+    })
+    return
+  }
+
+  const success = saveSummaryPromptTemplate(template)
+  if (!success) {
+    uni.showToast({
+      title: '保存失败',
+      icon: 'none'
+    })
+    return
+  }
+
+  uni.showToast({
+    title: '保存成功',
+    icon: 'success'
+  })
+  promptPopup.value.close()
+}
+
+// 恢复默认 Prompt
+function resetPromptTemplate() {
+  const success = clearSummaryPromptTemplate()
+  if (!success) {
+    uni.showToast({
+      title: '恢复失败',
+      icon: 'none'
+    })
+    return
+  }
+
+  promptTemplate.value = DEFAULT_WEEKLY_SUMMARY_PROMPT
+  uni.showToast({
+    title: '已恢复默认',
+    icon: 'success'
+  })
+}
+
 // 分享
 function handleShare() {
   const text = `【${currentDetail.value.weekLabel} 周总结】\n\n${currentDetail.value.summary}`
@@ -317,6 +406,18 @@ function formatTime(timestamp) {
   align-items: center;
   justify-content: center;
   margin-bottom: 15px;
+}
+
+.prompt-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.prompt-btn {
+  background-color: #f0f0f0;
+  color: #666;
+  border: none;
 }
 
 .week-btn {
@@ -509,6 +610,60 @@ function formatTime(timestamp) {
   background-color: #f0f0f0;
   color: #333;
   border-radius: 8px;
+}
+
+.prompt-popup {
+  width: 82vw;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.prompt-header {
+  margin-bottom: 10px;
+}
+
+.prompt-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.prompt-textarea {
+  width: 100%;
+  min-height: 220px;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.prompt-tip {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
+
+.prompt-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.popup-btn {
+  background-color: #f0f0f0;
+  color: #333;
+  border: none;
+}
+
+.popup-btn.primary {
+  background-color: #007AFF;
+  color: #FFFFFF;
 }
 
 /* 加载弹窗 */

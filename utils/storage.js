@@ -5,7 +5,8 @@
 const STORAGE_KEYS = {
   RECORDS: 'daily_records', // 每日记录
   SUMMARIES: 'weekly_summaries', // 周总结历史
-  LAST_CHECK: 'last_summary_check' // 上次检查总结的时间
+  LAST_CHECK: 'last_summary_check', // 上次检查总结的时间
+  SUMMARY_PROMPT_TEMPLATE: 'summary_prompt_template' // 周总结 Prompt 模板
 }
 
 /**
@@ -165,4 +166,46 @@ export function isCheckedToday() {
   const today = new Date()
   
   return lastCheckDate.toDateString() === today.toDateString()
+}
+
+/**
+ * 获取周总结 Prompt 模板
+ * @returns {string}
+ */
+export function getSummaryPromptTemplate() {
+  try {
+    return uni.getStorageSync(STORAGE_KEYS.SUMMARY_PROMPT_TEMPLATE) || ''
+  } catch (error) {
+    console.error('读取 Prompt 模板失败:', error)
+    return ''
+  }
+}
+
+/**
+ * 保存周总结 Prompt 模板
+ * @param {string} template 模板内容
+ * @returns {boolean}
+ */
+export function saveSummaryPromptTemplate(template) {
+  try {
+    uni.setStorageSync(STORAGE_KEYS.SUMMARY_PROMPT_TEMPLATE, template)
+    return true
+  } catch (error) {
+    console.error('保存 Prompt 模板失败:', error)
+    return false
+  }
+}
+
+/**
+ * 清空周总结 Prompt 模板
+ * @returns {boolean}
+ */
+export function clearSummaryPromptTemplate() {
+  try {
+    uni.removeStorageSync(STORAGE_KEYS.SUMMARY_PROMPT_TEMPLATE)
+    return true
+  } catch (error) {
+    console.error('清空 Prompt 模板失败:', error)
+    return false
+  }
 }

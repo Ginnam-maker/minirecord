@@ -1,4 +1,27 @@
 import config from '@/config.js'
+import { getSummaryPromptTemplate } from '@/utils/storage.js'
+
+export const DEFAULT_WEEKLY_SUMMARY_PROMPT = `你是一个专业的个人成长顾问。以下是用户过去一周的每日记录：
+
+{{records}}
+
+请根据这些记录，生成一份周总结复盘报告，包含以下内容：
+1. 本周主要活动和成就总结
+2. 时间分配分析（工作、学习、生活等）
+3. 发现的亮点和值得继续保持的地方
+4. 需要改进的方面
+5. 下周的建议和行动计划
+
+请用简洁、友好的语气，帮助用户更好地认识自己的一周。`
+
+export function buildWeeklySummaryPrompt(recordsText) {
+  const customTemplate = getSummaryPromptTemplate().trim()
+  const template = customTemplate || DEFAULT_WEEKLY_SUMMARY_PROMPT
+  if (/\{\{records\}\}/.test(template)) {
+    return template.replace(/\{\{records\}\}/g, recordsText)
+  }
+  return `${template}\n\n本周记录：\n${recordsText}`
+}
 
 /**
  * 调用 DeepSeek API 生成周总结
@@ -16,18 +39,7 @@ export async function generateWeeklySummary(records) {
   
   // 构建提示词
   const recordsText = records.map(r => `${r.date}: ${r.content}`).join('\n')
-  const prompt = `你是一个专业的个人成长顾问。以下是用户过去一周的每日记录：
-
-${recordsText}
-
-请根据这些记录，生成一份周总结复盘报告，包含以下内容：
-1. 本周主要活动和成就总结
-2. 时间分配分析（工作、学习、生活等）
-3. 发现的亮点和值得继续保持的地方
-4. 需要改进的方面
-5. 下周的建议和行动计划
-
-请用简洁、友好的语气，帮助用户更好地认识自己的一周。`
+  const prompt = buildWeeklySummaryPrompt(recordsText)
 
   try {
     const response = await uni.request({
