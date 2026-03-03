@@ -88,7 +88,7 @@
         <scroll-view class="detail-content" scroll-y>
           <!-- 总结内容 -->
           <view class="summary-content">
-            <text class="content-text">{{ currentDetail.summary }}</text>
+            <rich-text class="content-rich" :nodes="renderedSummaryHtml"></rich-text>
           </view>
           
           <!-- 相关记录 -->
@@ -183,6 +183,7 @@ const promptTemplate = ref('')
 // 计算属性
 const loading = computed(() => recordStore.loading)
 const summaryList = computed(() => recordStore.summaries)
+const renderedSummaryHtml = computed(() => markdownToHtml(currentDetail.value.summary || ''))
 
 const currentWeekLabel = computed(() => {
   const referenceDate = new Date()
@@ -386,6 +387,120 @@ function formatTime(timestamp) {
   
   return formatDate(date, 'MM-DD')
 }
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function parseInlineMarkdown(text) {
+  let html = escapeHtml(text)
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" style="color:#007AFF;text-decoration:none;">$1</a>')
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>')
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  html = html.replace(/_([^_]+)_/g, '<em>$1</em>')
+  html = html.replace(/`([^`]+)`/g, '<code style="font-family:monospace;background:#f5f5f5;padding:2px 4px;border-radius:4px;">$1</code>')
+  return html
+}
+
+function markdownToHtml(markdownText) {
+  const source = String(markdownText || '').replace(/\r\n/g, '\n')
+  if (!source.trim()) {
+    return '<p style="margin:0;color:#999;">暂无总结内容</p>'
+  }
+
+  const codeBlocks = []
+  let text = source.replace(/```([\w-]*)\n([\s\S]*?)```/g, (_, __, code) => {
+    const token = `@@CODE_BLOCK_${codeBlocks.length}@@`
+    codeBlocks.push(`<pre style="background:#f8f8f8;padding:12px;border-radius:8px;overflow:auto;line-height:1.5;margin:10px 0;"><code style="font-family:monospace;">${escapeHtml(code)}</code></pre>`)
+    return token
+  })
+
+  const lines = text.split('\n')
+  const htmlParts = []
+  let listType = ''
+
+  const closeList = () => {
+    if (listType) {
+      htmlParts.push(listType === 'ol' ? '</ol>' : '</ul>')
+      listType = ''
+    }
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    if (!trimmed) {
+      closeList()
+      continue
+    }
+
+    if (/^@@CODE_BLOCK_\d+@@$/.test(trimmed)) {
+      closeList()
+      htmlParts.push(trimmed)
+      continue
+    }
+
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      closeList()
+      const level = trimmed.match(/^#+/)[0].length
+      const content = parseInlineMarkdown(trimmed.replace(/^#{1,6}\s+/, ''))
+      const sizeMap = ['20px', '18px', '16px', '15px', '14px', '13px']
+      const size = sizeMap[level - 1] || '13px'
+      htmlParts.push(`<h${level} style="font-size:${size};font-weight:700;line-height:1.5;margin:14px 0 8px;color:#222;">${content}</h${level}>`)
+      continue
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      closeList()
+      const content = parseInlineMarkdown(trimmed.replace(/^>\s?/, ''))
+      htmlParts.push(`<blockquote style="margin:10px 0;padding:8px 12px;border-left:3px solid #007AFF;background:#f7fbff;color:#444;line-height:1.7;">${content}</blockquote>`)
+      continue
+    }
+
+    if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
+      closeList()
+      htmlParts.push('<hr style="border:none;border-top:1px solid #eaeaea;margin:12px 0;"/>')
+      continue
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      if (listType !== 'ol') {
+        closeList()
+        htmlParts.push('<ol style="margin:8px 0 8px 20px;color:#333;line-height:1.8;">')
+        listType = 'ol'
+      }
+      const content = parseInlineMarkdown(trimmed.replace(/^\d+\.\s+/, ''))
+      htmlParts.push(`<li style="margin:4px 0;">${content}</li>`)
+      continue
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      if (listType !== 'ul') {
+        closeList()
+        htmlParts.push('<ul style="margin:8px 0 8px 20px;color:#333;line-height:1.8;">')
+        listType = 'ul'
+      }
+      const content = parseInlineMarkdown(trimmed.replace(/^[-*]\s+/, ''))
+      htmlParts.push(`<li style="margin:4px 0;">${content}</li>`)
+      continue
+    }
+
+    closeList()
+    htmlParts.push(`<p style="margin:8px 0;color:#333;line-height:1.85;">${parseInlineMarkdown(trimmed)}</p>`)
+  }
+
+  closeList()
+
+  let html = htmlParts.join('')
+  html = html.replace(/@@CODE_BLOCK_(\d+)@@/g, (_, index) => codeBlocks[Number(index)] || '')
+  return html
+}
 </script>
 
 <style scoped>
@@ -560,11 +675,10 @@ function formatTime(timestamp) {
   margin-bottom: 30px;
 }
 
-.content-text {
+.content-rich {
   font-size: 15px;
   color: #333;
   line-height: 1.8;
-  white-space: pre-wrap;
 }
 
 .related-records {
