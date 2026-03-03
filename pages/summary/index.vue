@@ -85,7 +85,7 @@
           <text class="close-btn" @click="closeDetail">✕</text>
         </view>
         
-        <scroll-view class="detail-content" scroll-y>
+        <scroll-view class="detail-content" :scroll-y="true" enable-flex>
           <!-- 总结内容 -->
           <view class="summary-content">
             <rich-text class="content-rich" :nodes="renderedSummaryHtml"></rich-text>
@@ -644,6 +644,7 @@ function markdownToHtml(markdownText) {
   flex-direction: column;
   background-color: #FFFFFF;
   border-radius: 20px 20px 0 0;
+  overflow: hidden;
 }
 
 .detail-header {
@@ -668,7 +669,9 @@ function markdownToHtml(markdownText) {
 
 .detail-content {
   flex: 1;
+  height: 0;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .summary-content {
