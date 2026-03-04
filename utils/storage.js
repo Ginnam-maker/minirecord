@@ -6,7 +6,19 @@ const STORAGE_KEYS = {
   RECORDS: 'daily_records', // 每日记录
   SUMMARIES: 'weekly_summaries', // 周总结历史
   LAST_CHECK: 'last_summary_check', // 上次检查总结的时间
-  SUMMARY_PROMPT_TEMPLATE: 'summary_prompt_template' // 周总结 Prompt 模板
+  SUMMARY_PROMPT_TEMPLATE: 'summary_prompt_template', // 周总结 Prompt 模板
+  USER_LICENSE: 'user_license_profile', // 用户授权信息
+  SUMMARY_QUOTA_USAGE: 'summary_quota_usage' // 周总结配额使用情况
+}
+
+export const DEFAULT_FREE_MONTHLY_LIMIT = 5
+export const DEFAULT_PRO_MONTHLY_LIMIT = 100
+
+export function getCurrentMonthKey(date = new Date()) {
+  const currentDate = date instanceof Date ? date : new Date(date)
+  const year = currentDate.getFullYear()
+  const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
 }
 
 /**
@@ -206,6 +218,88 @@ export function clearSummaryPromptTemplate() {
     return true
   } catch (error) {
     console.error('清空 Prompt 模板失败:', error)
+    return false
+  }
+}
+
+/**
+ * 获取授权信息
+ * @returns {Object|null}
+ */
+export function getLicenseData() {
+  try {
+    return uni.getStorageSync(STORAGE_KEYS.USER_LICENSE) || null
+  } catch (error) {
+    console.error('读取授权信息失败:', error)
+    return null
+  }
+}
+
+/**
+ * 保存授权信息
+ * @param {Object} data 授权信息
+ * @returns {boolean}
+ */
+export function saveLicenseData(data) {
+  try {
+    uni.setStorageSync(STORAGE_KEYS.USER_LICENSE, data)
+    return true
+  } catch (error) {
+    console.error('保存授权信息失败:', error)
+    return false
+  }
+}
+
+/**
+ * 清空授权信息
+ * @returns {boolean}
+ */
+export function clearLicenseData() {
+  try {
+    uni.removeStorageSync(STORAGE_KEYS.USER_LICENSE)
+    return true
+  } catch (error) {
+    console.error('清空授权信息失败:', error)
+    return false
+  }
+}
+
+/**
+ * 获取周总结配额使用数据
+ * @returns {Object}
+ */
+export function getSummaryQuotaUsage() {
+  try {
+    const data = uni.getStorageSync(STORAGE_KEYS.SUMMARY_QUOTA_USAGE)
+    if (!data || typeof data !== 'object') {
+      return { monthly: {} }
+    }
+
+    if (!data.monthly || typeof data.monthly !== 'object') {
+      return {
+        ...data,
+        monthly: {}
+      }
+    }
+
+    return data
+  } catch (error) {
+    console.error('读取周总结配额失败:', error)
+    return { monthly: {} }
+  }
+}
+
+/**
+ * 保存周总结配额使用数据
+ * @param {Object} usage 配额数据
+ * @returns {boolean}
+ */
+export function saveSummaryQuotaUsage(usage) {
+  try {
+    uni.setStorageSync(STORAGE_KEYS.SUMMARY_QUOTA_USAGE, usage)
+    return true
+  } catch (error) {
+    console.error('保存周总结配额失败:', error)
     return false
   }
 }

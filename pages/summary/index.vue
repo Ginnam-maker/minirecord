@@ -2,6 +2,25 @@
   <view class="summary-page">
     <!-- 顶部操作区 -->
     <view class="header-section">
+      <view class="license-section">
+        <view class="license-info">
+          <text class="license-title">当前用户：{{ userTypeText }}</text>
+          <text v-if="isPro" class="license-subtitle">
+            {{ userProfile.expireAt ? `有效期至 ${formatDate(userProfile.expireAt, 'YYYY-MM-DD')}` : '永久有效' }}
+          </text>
+          <text v-else class="license-subtitle">普通用户每月可提交 5 次周总结</text>
+          <text class="license-quota">本月已用 {{ quotaInfo.used }}/{{ quotaInfo.limit }}，剩余 {{ quotaInfo.remaining }} 次</text>
+        </view>
+        <button
+          v-if="!isPro"
+          class="activate-btn"
+          size="mini"
+          @click="openActivatePopup"
+        >
+          激活付费版
+        </button>
+      </view>
+
       <view class="week-selector">
         <button 
           class="week-btn" 
@@ -137,6 +156,25 @@
         </view>
       </view>
     </uni-popup>
+
+    <uni-popup ref="activatePopup" type="center">
+      <view class="activate-popup">
+        <view class="prompt-header">
+          <text class="prompt-title">输入激活码</text>
+        </view>
+        <textarea
+          class="prompt-textarea"
+          v-model="activationCode"
+          maxlength="4096"
+          placeholder="请输入激活码（格式：MR1.xxxxx.yyyyy）"
+        />
+        <text class="prompt-tip">激活码将使用内置 RSA 公钥进行验签，私钥仅由发行方持有。</text>
+        <view class="prompt-footer">
+          <button class="popup-btn" size="mini" @click="closeActivatePopup">取消</button>
+          <button class="popup-btn primary" size="mini" @click="handleActivate">立即激活</button>
+        </view>
+      </view>
+    </uni-popup>
     
     <!-- 加载提示 -->
     <uni-popup ref="loadingPopup" type="center" :mask-click="false">
@@ -163,6 +201,11 @@ import {
   saveSummaryPromptTemplate,
   clearSummaryPromptTemplate
 } from '@/utils/storage.js'
+import {
+  activateWithCode,
+  getUserLicenseProfile,
+  getSummaryQuotaSnapshot
+} from '@/utils/license.js'
 
 const recordStore = useRecordStore()
 
@@ -170,6 +213,7 @@ const recordStore = useRecordStore()
 const detailPopup = ref(null)
 const loadingPopup = ref(null)
 const promptPopup = ref(null)
+const activatePopup = ref(null)
 
 // 状态
 const selectedWeekOffset = ref(0) // 0=本周, -1=上周
@@ -179,11 +223,16 @@ const currentDetail = ref({
   records: []
 })
 const promptTemplate = ref('')
+const activationCode = ref('')
+const userProfile = ref(getUserLicenseProfile())
+const quotaInfo = ref(getSummaryQuotaSnapshot())
 
 // 计算属性
 const loading = computed(() => recordStore.loading)
 const summaryList = computed(() => recordStore.summaries)
 const renderedSummaryHtml = computed(() => markdownToHtml(currentDetail.value.summary || ''))
+const isPro = computed(() => userProfile.value.isPro)
+const userTypeText = computed(() => isPro.value ? '付费用户' : '普通用户')
 
 const currentWeekLabel = computed(() => {
   const referenceDate = new Date()
@@ -203,7 +252,13 @@ const weekRecordCount = computed(() => {
 // 初始化
 onMounted(() => {
   recordStore.init()
+  refreshUserProfile()
 })
+
+function refreshUserProfile() {
+  userProfile.value = getUserLicenseProfile()
+  quotaInfo.value = getSummaryQuotaSnapshot()
+}
 
 // 选择周
 function selectWeek(offset) {
@@ -237,6 +292,8 @@ async function handleGenerateSummary() {
     setTimeout(() => {
       showDetailByData(result)
     }, 500)
+
+    refreshUserProfile()
     
   } catch (error) {
     loadingPopup.value.close()
@@ -285,6 +342,43 @@ function closeDetail() {
 function openPromptEditor() {
   promptTemplate.value = getSummaryPromptTemplate() || DEFAULT_WEEKLY_SUMMARY_PROMPT
   promptPopup.value.open()
+}
+
+function openActivatePopup() {
+  activationCode.value = ''
+  activatePopup.value.open()
+}
+
+function closeActivatePopup() {
+  activatePopup.value.close()
+}
+
+function handleActivate() {
+  const code = String(activationCode.value || '').trim()
+  if (!code) {
+    uni.showToast({
+      title: '请输入激活码',
+      icon: 'none'
+    })
+    return
+  }
+
+  const result = activateWithCode(code)
+  if (!result.success) {
+    uni.showModal({
+      title: '激活失败',
+      content: result.message || '激活失败，请检查激活码',
+      showCancel: false
+    })
+    return
+  }
+
+  refreshUserProfile()
+  activatePopup.value.close()
+  uni.showToast({
+    title: '激活成功',
+    icon: 'success'
+  })
 }
 
 // 保存 Prompt 模板
@@ -516,6 +610,45 @@ function markdownToHtml(markdownText) {
   margin-bottom: 10px;
 }
 
+.license-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f7faff;
+  border: 1px solid #e6f0ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.license-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.license-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.license-subtitle {
+  font-size: 12px;
+  color: #6b7a8f;
+}
+
+.license-quota {
+  font-size: 12px;
+  color: #2f6bcf;
+}
+
+.activate-btn {
+  background-color: #007AFF;
+  color: #FFFFFF;
+  border: none;
+}
+
 .week-selector {
   display: flex;
   align-items: center;
@@ -730,6 +863,13 @@ function markdownToHtml(markdownText) {
 }
 
 .prompt-popup {
+  width: 82vw;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.activate-popup {
   width: 82vw;
   background-color: #FFFFFF;
   border-radius: 12px;

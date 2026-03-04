@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "dev": "echo '请在 HBuilderX 中运行项目'",
-    "build": "echo '请在 HBuilderX 中打包项目'"
+    "build": "echo '请在 HBuilderX 中打包项目'",
+    "license:gen": "node scripts/generate-license-code.js"
   },
   "keywords": [
     "uni-app",
@@ -18,6 +19,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "jsrsasign": "^11.1.0",
     "pinia": "^2.3.1"
   }
 }
