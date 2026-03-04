@@ -39,11 +39,11 @@
         </button>
       </view>
 
-      <view class="prompt-action">
+      <!-- <view class="prompt-action">
         <button class="prompt-btn" size="mini" @click="openPromptEditor">
           Prompt
         </button>
-      </view>
+      </view> -->
       
       <button 
         class="generate-btn" 
@@ -168,7 +168,6 @@
           maxlength="4096"
           placeholder="请输入激活码（格式：MR1.xxxxx.yyyyy）"
         />
-        <text class="prompt-tip">激活码将使用内置 RSA 公钥进行验签，私钥仅由发行方持有。</text>
         <view class="prompt-footer">
           <button class="popup-btn" size="mini" @click="closeActivatePopup">取消</button>
           <button class="popup-btn primary" size="mini" @click="handleActivate">立即激活</button>
