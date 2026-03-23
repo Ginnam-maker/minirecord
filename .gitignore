@@ -8,6 +8,8 @@ pnpm-debug.log*
 # uni-app 编译输出
 unpackage/dist/
 unpackage/build/
+unpackage/cache/
+unpackage/res/
 
 # 开发工具缓存
 .DS_Store
@@ -35,6 +37,7 @@ logs/
 
 # 私钥与敏感文件
 scripts/secrets/license_private_key.pem
+config.js
 
 # 操作系统文件
 Thumbs.db

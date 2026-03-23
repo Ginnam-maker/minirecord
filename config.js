@@ -10,7 +10,7 @@ export default {
   // 周总结配置
   summary: {
     // 自动触发周总结的星期几 (1=周一, 0=周日)
-    autoTriggerDay: 1,
+    autoTriggerDay: 0,
     // 是否启用自动总结
     autoEnabled: true
   }
