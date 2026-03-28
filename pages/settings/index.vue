@@ -62,6 +62,9 @@ export default {
       apiTypes: [
         { name: 'DeepSeek', value: 'deepseek' },
         { name: 'Kimi (Moonshot)', value: 'moonshot' },
+        { name: '阿里云 (通义千问)', value: 'qwen' },
+        { name: '智谱 AI (GLM)', value: 'zhipu' },
+        { name: '硅基流动 (SiliconFlow)', value: 'siliconflow' },
         { name: '自定义 API (兼容 OpenAI)', value: 'custom' }
       ],
       apiTypeIndex: 0,

@@ -43,6 +43,24 @@ function getApiConfig() {
       apiKey: defaultKey,
       model: 'moonshot-v1-8k'
     }
+  } else if (type === 'qwen') {
+    return {
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      apiKey: defaultKey,
+      model: 'qwen-plus'
+    }
+  } else if (type === 'zhipu') {
+    return {
+      baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+      apiKey: defaultKey,
+      model: 'glm-4'
+    }
+  } else if (type === 'siliconflow') {
+    return {
+      baseURL: 'https://api.siliconflow.cn/v1',
+      apiKey: defaultKey,
+      model: 'deepseek-ai/DeepSeek-V3' // 默认使用硅基流动的 DeepSeek V3 接口
+    }
   } else {
     // deepseek
     return {
