@@ -14,8 +14,62 @@ const STORAGE_KEYS = {
 export const DEFAULT_FREE_MONTHLY_LIMIT = 5
 export const DEFAULT_PRO_MONTHLY_LIMIT = 100
 
+function parseYmdToLocalDate(dateStr) {
+  if (typeof dateStr !== 'string') return null
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim())
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day, 0, 0, 0, 0)
+
+  // 无效日期（如 2026-02-30）会在构造时溢出，需要回查校验
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null
+  }
+
+  return date
+}
+
+function getDateKeyTimestamp(dateStr) {
+  const date = parseYmdToLocalDate(dateStr)
+  return date ? date.getTime() : NaN
+}
+
+function toSafeDate(input) {
+  if (input instanceof Date) {
+    return Number.isNaN(input.getTime()) ? null : input
+  }
+
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    const date = new Date(input)
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim()
+    const ymdDate = parseYmdToLocalDate(trimmed)
+    if (ymdDate) {
+      return ymdDate
+    }
+
+    if (/^\d+$/.test(trimmed)) {
+      const timestamp = Number(trimmed)
+      if (Number.isFinite(timestamp)) {
+        const date = new Date(timestamp)
+        return Number.isNaN(date.getTime()) ? null : date
+      }
+    }
+  }
+
+  return null
+}
+
 export function getCurrentMonthKey(date = new Date()) {
-  const currentDate = date instanceof Date ? date : new Date(date)
+  const currentDate = toSafeDate(date) || new Date()
+
   const year = currentDate.getFullYear()
   const month = String(currentDate.getMonth() + 1).padStart(2, '0')
   return `${year}-${month}`
@@ -83,14 +137,18 @@ export function getRecordsByRange(startTime, endTime) {
   const result = []
   
   for (const [date, record] of Object.entries(records)) {
-    const timestamp = new Date(date).getTime()
+    const timestamp = getDateKeyTimestamp(date)
+    if (Number.isNaN(timestamp)) {
+      continue
+    }
+
     if (timestamp >= startTime && timestamp <= endTime) {
       result.push(record)
     }
   }
   
   // 按日期排序
-  result.sort((a, b) => new Date(a.date) - new Date(b.date))
+  result.sort((a, b) => getDateKeyTimestamp(a.date) - getDateKeyTimestamp(b.date))
   return result
 }
 

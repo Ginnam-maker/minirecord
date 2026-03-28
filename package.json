@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "echo '请在 HBuilderX 中运行项目'",
     "build": "echo '请在 HBuilderX 中打包项目'",
-    "license:gen": "node scripts/generate-license-code.js"
+    "security:scan": "node scripts/secret-scan.js",
+    "release:check": "npm run security:scan"
   },
   "keywords": [
     "uni-app",

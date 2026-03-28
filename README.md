@@ -29,20 +29,28 @@
 
 ## 快速开始
 
-### 1. 配置 DeepSeek API
+### 1. 配置 DeepSeek API（示例配置 + 本地私有配置）
 
-打开 `config.js` 文件，填入你的 API Key：
+先复制示例配置文件：
+
+```bash
+copy config.example.js config.js
+```
+
+然后打开 `config.js` 文件，填入你的 API Key：
 
 ```javascript
 export default {
   deepseek: {
-    apiKey: 'sk-your-api-key-here', // 填入你的 DeepSeek API Key
+    apiKey: '你的私有 API Key',
     baseURL: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat'
   },
   // ...
 }
 ```
+
+`config.example.js` 可以提交到仓库，`config.js` 作为本地私有配置使用，不应包含在发布分支里。
 
 **如何获取 API Key：**
 1. 访问 [DeepSeek 官网](https://platform.deepseek.com/)
@@ -129,13 +137,13 @@ miniRecord/
 
 ## 配置选项
 
-### config.js
+### config.example.js（模板）
 
 ```javascript
 export default {
   // DeepSeek API 配置
   deepseek: {
-    apiKey: '',                                    // API Key
+    apiKey: '',                                    // 本地私有 API Key
     baseURL: 'https://api.deepseek.com/v1',       // API 地址
     model: 'deepseek-chat'                         // 模型名称
   },
@@ -147,6 +155,14 @@ export default {
   }
 }
 ```
+
+发布前请执行密钥扫描：
+
+```bash
+npm run release:check
+```
+
+如扫描失败，请按输出的文件和行号清理敏感信息后再发布。
 
 ## 数据存储
 
@@ -164,7 +180,7 @@ export default {
 
 ### 1. 提示 "请先配置 DeepSeek API Key"
 
-确保在 `config.js` 中填写了正确的 API Key。
+确保在本地 `config.js` 或设置页中填写了正确的 API Key。
 
 ### 2. 生成总结失败
 

@@ -1,9 +1,10 @@
 <script setup>
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { useRecordStore } from '@/stores/recordStore.js'
+import { logger } from '@/utils/logger.js'
 
 onLaunch(() => {
-  console.log('App Launch')
+	logger.debug('App Launch')
   
   // 初始化数据存储
   const recordStore = useRecordStore()
@@ -11,11 +12,11 @@ onLaunch(() => {
 })
 
 onShow(() => {
-  console.log('App Show')
+	logger.debug('App Show')
 })
 
 onHide(() => {
-  console.log('App Hide')
+	logger.debug('App Hide')
 })
 </script>
 

@@ -19,12 +19,6 @@
           本周
         </button>
       </view>
-
-      <!-- <view class="prompt-action">
-        <button class="prompt-btn" size="mini" @click="openPromptEditor">
-          Prompt
-        </button>
-      </view> -->
       
       <button 
         class="generate-btn" 
@@ -117,26 +111,6 @@
         </view>
       </view>
     </uni-popup>
-
-    <!-- Prompt 编辑弹窗 -->
-    <uni-popup ref="promptPopup" type="center">
-      <view class="prompt-popup">
-        <view class="prompt-header">
-          <text class="prompt-title">自定义总结 Prompt</text>
-        </view>
-        <textarea
-          class="prompt-textarea"
-          v-model="promptTemplate"
-          maxlength="2000"
-          placeholder="请输入 Prompt 模板，使用 {{records}} 代表每周记录内容"
-        />
-        <text class="prompt-tip">提示：请保留占位符 { {records} }（无空格）用于插入本周记录。</text>
-        <view class="prompt-footer">
-          <button class="popup-btn" size="mini" @click="resetPromptTemplate">恢复默认</button>
-          <button class="popup-btn primary" size="mini" @click="savePromptTemplate">保存</button>
-        </view>
-      </view>
-    </uni-popup>
     
     <!-- 加载提示 -->
     <uni-popup ref="loadingPopup" type="center" :mask-click="false">
@@ -146,22 +120,25 @@
         <text class="loading-tip">这可能需要几秒钟</text>
       </view>
     </uni-popup>
+
+    <canvas id="shareCanvas" canvas-id="shareCanvas" type="2d" class="share-canvas"></canvas>
   </view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, getCurrentInstance } from 'vue'
 import { useRecordStore } from '@/stores/recordStore.js'
 import {
   getWeekRange,
-  formatDate,
-  DEFAULT_WEEKLY_SUMMARY_PROMPT
+  formatDate
 } from '@/utils/deepseek.js'
 import {
-  getRecordsByRange,
-  getSummaryPromptTemplate,
-  saveSummaryPromptTemplate,
-  clearSummaryPromptTemplate
+  generateShareCard,
+  saveImageToAlbum,
+  shareImageBySystem
+} from '@/utils/shareCard.js'
+import {
+  getRecordsByRange
 } from '@/utils/storage.js'
 
 const recordStore = useRecordStore()
@@ -169,16 +146,17 @@ const recordStore = useRecordStore()
 // 组件引用
 const detailPopup = ref(null)
 const loadingPopup = ref(null)
-const promptPopup = ref(null)
+const pageInstance = getCurrentInstance()
 
 // 状态
 const selectedWeekOffset = ref(0) // 0=本周, -1=上周
+const sharing = ref(false)
+const cachedShareImage = ref('')
 const currentDetail = ref({
   weekLabel: '',
   summary: '',
   records: []
 })
-const promptTemplate = ref('')
 
 // 计算属性
 const loading = computed(() => recordStore.loading)
@@ -256,6 +234,7 @@ async function handleGenerateSummary() {
 
 // 显示详情
 function showDetail(item) {
+  cachedShareImage.value = ''
   currentDetail.value = item
   detailPopup.value.open()
 }
@@ -273,69 +252,165 @@ function showDetailByData(data) {
     summary,
     records
   }
+  cachedShareImage.value = ''
   detailPopup.value.open()
 }
 
 // 关闭详情
 function closeDetail() {
+  cachedShareImage.value = ''
   detailPopup.value.close()
 }
 
-// 打开 Prompt 编辑器
-function openPromptEditor() {
-  promptTemplate.value = getSummaryPromptTemplate() || DEFAULT_WEEKLY_SUMMARY_PROMPT
-  promptPopup.value.open()
+function normalizeShareError(err) {
+  const message = err?.message || err?.errMsg || ''
+  const canceled = /cancel|canceled|用户取消|取消/.test(message)
+  const wrapped = new Error(message || '分享失败，请稍后再试')
+  wrapped.isCanceled = canceled
+  return wrapped
 }
 
-// 保存 Prompt 模板
-function savePromptTemplate() {
-  const template = (promptTemplate.value || '').trim()
+function getShareCanvasNode() {
+  return new Promise((resolve, reject) => {
+    const query = pageInstance?.proxy
+      ? uni.createSelectorQuery().in(pageInstance.proxy)
+      : uni.createSelectorQuery()
 
-  if (!template) {
-    uni.showToast({
-      title: 'Prompt 不能为空',
-      icon: 'none'
-    })
-    return
-  }
-
-  const success = saveSummaryPromptTemplate(template)
-  if (!success) {
-    uni.showToast({
-      title: '保存失败',
-      icon: 'none'
-    })
-    return
-  }
-
-  uni.showToast({
-    title: '保存成功',
-    icon: 'success'
+    query
+      .select('#shareCanvas')
+      .fields({ node: true, size: true }, (res) => {
+        if (!res || !res.node) {
+          reject(new Error('分享画布初始化失败，请稍后重试'))
+          return
+        }
+        resolve(res.node)
+      })
+      .exec()
   })
-  promptPopup.value.close()
 }
 
-// 恢复默认 Prompt
-function resetPromptTemplate() {
-  const success = clearSummaryPromptTemplate()
-  if (!success) {
-    uni.showToast({
-      title: '恢复失败',
-      icon: 'none'
-    })
-    return
+async function ensureShareImage() {
+  if (cachedShareImage.value) {
+    return cachedShareImage.value
   }
 
-  promptTemplate.value = DEFAULT_WEEKLY_SUMMARY_PROMPT
+  await nextTick()
+
+  const canvas = await getShareCanvasNode()
+  const path = await generateShareCard(
+    {
+      weekLabel: currentDetail.value.weekLabel,
+      summary: currentDetail.value.summary,
+      recordCount: Array.isArray(currentDetail.value.records) ? currentDetail.value.records.length : 0
+    },
+    canvas
+  )
+
+  if (!path) {
+    throw new Error('图片生成失败，请稍后再试')
+  }
+
+  cachedShareImage.value = path
+  return path
+}
+
+function chooseShareTarget() {
+  return new Promise((resolve, reject) => {
+    uni.showActionSheet({
+      itemList: ['微信', 'QQ', '本地'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          resolve('wechat')
+          return
+        }
+        if (res.tapIndex === 1) {
+          resolve('qq')
+          return
+        }
+        resolve('local')
+      },
+      fail: (err) => {
+        if (/(cancel|canceled|用户取消|取消)/.test(err?.errMsg || '')) {
+          resolve('cancel')
+          return
+        }
+        reject(err)
+      }
+    })
+  })
+}
+
+async function shareBySystemPanel(imagePath, targetName) {
   uni.showToast({
-    title: '已恢复默认',
+    title: `请在系统面板选择${targetName}`,
+    icon: 'none'
+  })
+
+  await shareImageBySystem(imagePath, {
+    title: `${currentDetail.value.weekLabel} 周总结`,
+    content: '来自 miniRecord 的每周总结卡片'
+  })
+}
+
+async function saveToLocalAlbum(imagePath) {
+  await saveImageToAlbum(imagePath)
+  uni.showToast({
+    title: '已保存到相册',
     icon: 'success'
   })
 }
 
 // 分享
-function handleShare() {
+async function handleShare() {
+  if (sharing.value) {
+    return
+  }
+
   const text = `【${currentDetail.value.weekLabel} 周总结】\n\n${currentDetail.value.summary}`
+
+  // #ifdef APP-PLUS
+  sharing.value = true
+  uni.showLoading({
+    title: '准备分享图片...'
+  })
+
+  try {
+    const imagePath = await ensureShareImage()
+    uni.hideLoading()
+
+    const target = await chooseShareTarget()
+    if (target === 'cancel') {
+      return
+    }
+
+    if (target === 'local') {
+      await saveToLocalAlbum(imagePath)
+      return
+    }
+
+    await shareBySystemPanel(imagePath, target === 'wechat' ? '微信' : 'QQ')
+  } catch (err) {
+    const shareError = normalizeShareError(err)
+    if (shareError.isCanceled) {
+      uni.showToast({
+        title: '已取消分享',
+        icon: 'none'
+      })
+      return
+    }
+
+    uni.showModal({
+      title: '分享失败',
+      content: shareError.message || '分享失败，请稍后再试',
+      showCancel: false
+    })
+  } finally {
+    uni.hideLoading()
+    sharing.value = false
+  }
+
+  return
+  // #endif
   
   // #ifdef H5
   // H5 环境使用剪贴板
@@ -348,6 +423,8 @@ function handleShare() {
       })
     }
   })
+
+  return
   // #endif
   
   // #ifdef MP-WEIXIN
@@ -355,9 +432,11 @@ function handleShare() {
   uni.showShareMenu({
     withShareTicket: true
   })
+
+  return
   // #endif
   
-  // #ifndef H5 || MP-WEIXIN
+  // #ifndef APP-PLUS
   // 其他平台
   uni.showModal({
     title: '分享',
@@ -562,18 +641,6 @@ function markdownToHtml(markdownText) {
   margin-bottom: 15px;
 }
 
-.prompt-action {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-}
-
-.prompt-btn {
-  background-color: #f0f0f0;
-  color: #666;
-  border: none;
-}
-
 .week-btn {
   background-color: #f0f0f0;
   color: #333;
@@ -768,65 +835,11 @@ function markdownToHtml(markdownText) {
   border-radius: 8px;
 }
 
-.prompt-popup {
-  width: 82vw;
-  background-color: #FFFFFF;
-  border-radius: 12px;
-  padding: 16px;
-}
-
 .activate-popup {
   width: 82vw;
   background-color: #FFFFFF;
   border-radius: 12px;
   padding: 16px;
-}
-
-.prompt-header {
-  margin-bottom: 10px;
-}
-
-.prompt-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
-}
-
-.prompt-textarea {
-  width: 100%;
-  min-height: 220px;
-  background-color: #f8f8f8;
-  border-radius: 8px;
-  padding: 10px;
-  box-sizing: border-box;
-  font-size: 14px;
-  color: #333;
-  line-height: 1.6;
-}
-
-.prompt-tip {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #999;
-}
-
-.prompt-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.popup-btn {
-  background-color: #f0f0f0;
-  color: #333;
-  border: none;
-}
-
-.popup-btn.primary {
-  background-color: #007AFF;
-  color: #FFFFFF;
 }
 
 /* 加载弹窗 */
@@ -860,5 +873,15 @@ function markdownToHtml(markdownText) {
 .loading-tip {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.share-canvas {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 750px;
+  height: 1200px;
+  opacity: 0;
+  pointer-events: none;
 }
 </style>

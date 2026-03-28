@@ -40,7 +40,6 @@ export const useRecordStore = defineStore('record', () => {
   function init() {
     loadRecords()
     loadSummaries()
-    checkAutoSummary()
   }
   
   // 加载记录
