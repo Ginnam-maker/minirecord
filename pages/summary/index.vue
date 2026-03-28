@@ -270,22 +270,30 @@ function normalizeShareError(err) {
   return wrapped
 }
 
-function getShareCanvasNode() {
+function getShareCanvasNode(retryCount = 0) {
   return new Promise((resolve, reject) => {
-    const query = pageInstance?.proxy
-      ? uni.createSelectorQuery().in(pageInstance.proxy)
-      : uni.createSelectorQuery()
+    // 添加延迟，确保Canvas已渲染
+    setTimeout(() => {
+      const query = pageInstance?.proxy
+        ? uni.createSelectorQuery().in(pageInstance.proxy)
+        : uni.createSelectorQuery()
 
-    query
-      .select('#shareCanvas')
-      .fields({ node: true, size: true }, (res) => {
-        if (!res || !res.node) {
-          reject(new Error('分享画布初始化失败，请稍后重试'))
-          return
-        }
-        resolve(res.node)
-      })
-      .exec()
+      query
+        .select('#shareCanvas')
+        .fields({ node: true, size: true }, (res) => {
+          if (!res || !res.node) {
+            // 最多重试2次
+            if (retryCount < 2) {
+              resolve(getShareCanvasNode(retryCount + 1))
+            } else {
+              reject(new Error('分享画布初始化失败，请稍后重试'))
+            }
+            return
+          }
+          resolve(res.node)
+        })
+        .exec()
+    }, retryCount === 0 ? 300 : 500) // 首次300ms，重试500ms
   })
 }
 
