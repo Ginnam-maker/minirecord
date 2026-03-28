@@ -16,10 +16,6 @@ import {
   formatDate,
   shouldAutoTrigger 
 } from '@/utils/deepseek.js'
-import {
-  canConsumeSummaryQuota,
-  consumeSummaryQuota
-} from '@/utils/license.js'
 
 export const useRecordStore = defineStore('record', () => {
   // 状态
@@ -99,11 +95,6 @@ export const useRecordStore = defineStore('record', () => {
       if (weekRecords.length === 0) {
         throw new Error('该周暂无记录，无法生成总结')
       }
-
-      const quotaCheck = canConsumeSummaryQuota()
-      if (!quotaCheck.allowed) {
-        throw new Error(quotaCheck.message)
-      }
       
       // 调用 API 生成总结
       const summaryText = await generateWeeklySummary(weekRecords)
@@ -112,24 +103,13 @@ export const useRecordStore = defineStore('record', () => {
       const summaryId = saveSummary(weekLabel, summaryText, weekRecords)
       
       if (summaryId) {
-        const consumeResult = consumeSummaryQuota()
-        if (!consumeResult.success) {
-          console.warn('周总结次数扣减失败:', consumeResult.message)
-        }
-
         loadSummaries()
         updateLastCheckTime()
         return {
           success: true,
           weekLabel,
           summary: summaryText,
-          quota: consumeResult.success
-            ? {
-                used: consumeResult.used,
-                limit: consumeResult.limit,
-                remaining: consumeResult.remaining
-              }
-            : null
+          quota: null
         }
       } else {
         throw new Error('保存总结失败')

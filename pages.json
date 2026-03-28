@@ -19,6 +19,12 @@
 			"style": {
 				"navigationBarTitleText": "uni-app"
 			}
+		},
+		{
+			"path": "pages/settings/index",
+			"style": {
+				"navigationBarTitleText": "设置"
+			}
 		}
 	],
 	"globalStyle": {
@@ -47,6 +53,12 @@
 				"iconPath": "static/tabbar/summary.png",
 				"selectedIconPath": "static/tabbar/summary-active.png",
 				"text": "总结"
+			},
+			{
+				"pagePath": "pages/settings/index",
+				"iconPath": "static/tabbar/summary.png",
+				"selectedIconPath": "static/tabbar/summary-active.png",
+				"text": "设置"
 			}
 		]
 	}

@@ -1,0 +1,172 @@
+<template>
+  <view class="settings-container">
+    <view class="section">
+      <text class="title">基本设置</text>
+      <view class="settings-list">
+        <view class="item">
+          <text class="label">当前使用的AI模型</text>
+          <picker :value="apiTypeIndex" :range="apiTypes" range-key="name" @change="onApiTypeChange">
+            <view class="picker-value">{{ apiTypes[apiTypeIndex].name }}</view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
+    <!-- 自定义 API 设置 -->
+    <view class="section" v-if="apiTypes[apiTypeIndex].value === 'custom'">
+      <text class="title">自定义 API 接口配置</text>
+      <view class="settings-list">
+        <view class="item-col">
+          <text class="label">API Base URL</text>
+          <input class="input" type="text" v-model="customApiBaseUrl" placeholder="如: https://api.openai.com/v1" />
+        </view>
+        <view class="item-col">
+          <text class="label">API Key</text>
+          <input class="input" type="text" v-model="customApiKey" placeholder="sk-..." />
+        </view>
+        <view class="item-col">
+          <text class="label">模型名称 (Model)</text>
+          <input class="input" type="text" v-model="customModel" placeholder="如: gpt-3.5-turbo" />
+        </view>
+      </view>
+    </view>
+
+    <!-- Deepseek 等内置 API 的设置 -->
+    <view class="section" v-else>
+      <text class="title">{{ apiTypes[apiTypeIndex].name }} 配置</text>
+      <view class="settings-list">
+        <view class="item-col">
+          <text class="label">API Key</text>
+          <input class="input" type="text" v-model="apiKey" placeholder="输入您的 API Key" />
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="title">自定义周总结 Prompt</text>
+      <view class="settings-list">
+        <textarea class="textarea" v-model="customPrompt" placeholder="如果你想改变AI分析报告的倾向，可以在此修改（需包含 {{records}} 占位符）"></textarea>
+      </view>
+    </view>
+
+    <view class="action-btn">
+      <button type="primary" @click="saveSettings">保存设置</button>
+    </view>
+  </view>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      apiTypes: [
+        { name: 'DeepSeek', value: 'deepseek' },
+        { name: 'Kimi (Moonshot)', value: 'moonshot' },
+        { name: '自定义 API (兼容 OpenAI)', value: 'custom' }
+      ],
+      apiTypeIndex: 0,
+      apiKey: '',
+      customApiBaseUrl: '',
+      customApiKey: '',
+      customModel: '',
+      customPrompt: ''
+    }
+  },
+  onLoad() {
+    this.loadSettings()
+  },
+  methods: {
+    loadSettings() {
+      const type = uni.getStorageSync('ai_api_type') || 'deepseek'
+      const index = this.apiTypes.findIndex(item => item.value === type)
+      this.apiTypeIndex = index >= 0 ? index : 0
+      
+      this.apiKey = uni.getStorageSync('ai_api_key_default') || ''
+      this.customApiBaseUrl = uni.getStorageSync('ai_custom_api_base_url') || ''
+      this.customApiKey = uni.getStorageSync('ai_custom_api_key') || ''
+      this.customModel = uni.getStorageSync('ai_custom_model') || ''
+      this.customPrompt = uni.getStorageSync('summary_prompt_template') || ''
+    },
+    onApiTypeChange(e) {
+      this.apiTypeIndex = e.detail.value
+    },
+    saveSettings() {
+      const type = this.apiTypes[this.apiTypeIndex].value
+      uni.setStorageSync('ai_api_type', type)
+      uni.setStorageSync('ai_api_key_default', this.apiKey)
+      uni.setStorageSync('ai_custom_api_base_url', this.customApiBaseUrl)
+      uni.setStorageSync('ai_custom_api_key', this.customApiKey)
+      uni.setStorageSync('ai_custom_model', this.customModel)
+      uni.setStorageSync('summary_prompt_template', this.customPrompt)
+      
+      uni.showToast({
+        title: '保存成功',
+        icon: 'success'
+      })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.settings-container {
+  padding: 15px;
+  background-color: #f8f8f8;
+  min-height: 100vh;
+}
+.section {
+  margin-bottom: 20px;
+}
+.title {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+  display: block;
+}
+.settings-list {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  font-size: 15px;
+}
+.item:last-child {
+  border-bottom: none;
+}
+.item-col {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  
+  .label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+}
+.picker-value {
+  color: #333;
+}
+.input {
+  font-size: 15px;
+  width: 100%;
+}
+.textarea {
+  width: 100%;
+  padding: 15px;
+  font-size: 15px;
+  box-sizing: border-box;
+  min-height: 150px;
+}
+.action-btn {
+  margin-top: 30px;
+  padding: 0 15px;
+}
+</style>

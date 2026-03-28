@@ -24,13 +24,45 @@ export function buildWeeklySummaryPrompt(recordsText) {
 }
 
 /**
- * 调用 DeepSeek API 生成周总结
+ * 获取请求参数
+ * 根据 storage 配置生成不同 API 提供商的请求参数
+ */
+function getApiConfig() {
+  const type = uni.getStorageSync('ai_api_type') || 'deepseek'
+  const defaultKey = uni.getStorageSync('ai_api_key_default') || ''
+  
+  if (type === 'custom') {
+    return {
+      baseURL: uni.getStorageSync('ai_custom_api_base_url') || '',
+      apiKey: uni.getStorageSync('ai_custom_api_key') || '',
+      model: uni.getStorageSync('ai_custom_model') || ''
+    }
+  } else if (type === 'moonshot') {
+    return {
+      baseURL: 'https://api.moonshot.cn/v1',
+      apiKey: defaultKey,
+      model: 'moonshot-v1-8k'
+    }
+  } else {
+    // deepseek
+    return {
+      baseURL: config.deepseek.baseURL || 'https://api.deepseek.com/v1',
+      apiKey: defaultKey || config.deepseek.apiKey,
+      model: config.deepseek.model || 'deepseek-chat'
+    }
+  }
+}
+
+/**
+ * 调用 API 生成周总结
  * @param {Array} records 一周的记录列表 [{date, content}]
  * @returns {Promise<string>} 总结内容
  */
 export async function generateWeeklySummary(records) {
-  if (!config.deepseek.apiKey) {
-    throw new Error('请先配置 DeepSeek API Key')
+  const apiConfig = getApiConfig()
+  
+  if (!apiConfig.apiKey) {
+    throw new Error('请先到设置页配置 API Key')
   }
   
   if (!records || records.length === 0) {
@@ -42,15 +74,19 @@ export async function generateWeeklySummary(records) {
   const prompt = buildWeeklySummaryPrompt(recordsText)
 
   try {
+    const url = apiConfig.baseURL.endsWith('/') ? 
+                `${apiConfig.baseURL}chat/completions` : 
+                `${apiConfig.baseURL}/chat/completions`
+                
     const response = await uni.request({
-      url: `${config.deepseek.baseURL}/chat/completions`,
+      url: url,
       method: 'POST',
       header: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.deepseek.apiKey}`
+        'Authorization': `Bearer ${apiConfig.apiKey}`
       },
       data: {
-        model: config.deepseek.model,
+        model: apiConfig.model,
         messages: [
           {
             role: 'user',
@@ -69,7 +105,7 @@ export async function generateWeeklySummary(records) {
       throw new Error(response.data.error?.message || 'API 调用失败')
     }
   } catch (error) {
-    console.error('DeepSeek API 调用失败:', error)
+    console.error('API 调用失败:', error)
     throw new Error(`生成总结失败: ${error.errMsg || error.message}`)
   }
 }
