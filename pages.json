@@ -56,8 +56,8 @@
 			},
 			{
 				"pagePath": "pages/settings/index",
-				"iconPath": "static/tabbar/summary.png",
-				"selectedIconPath": "static/tabbar/summary-active.png",
+				"iconPath": "static/tabbar/settings.png",
+				"selectedIconPath": "static/tabbar/settings-active.png",
 				"text": "设置"
 			}
 		]
