@@ -48,7 +48,8 @@
             <input
               class="input"
               type="text"
-              v-model="formName"
+              :value="formName"
+              @input="formName = $event.detail.value"
               maxlength="20"
               placeholder="例如：看一场电影"
             />
@@ -62,7 +63,8 @@
             <input
               class="input"
               type="number"
-              v-model="formCost"
+              :value="formCost"
+              @input="formCost = $event.detail.value"
               maxlength="6"
               placeholder="例如：30"
             />
@@ -75,10 +77,11 @@
             </view>
             <textarea
               class="textarea"
-              v-model="formDescription"
+              :value="formDescription"
+              @input="formDescription = $event.detail.value"
               maxlength="100"
               placeholder="例如：每周最多兑换一次"
-            ></textarea>
+            />
           </view>
         </view>
 
