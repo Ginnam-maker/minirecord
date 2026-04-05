@@ -51,11 +51,14 @@
 
     <view class="action-btn">
       <button type="primary" @click="saveSettings">保存设置</button>
+      <button class="reset-btn" @click="resetDefaultSettings">恢复默认设置</button>
     </view>
   </view>
 </template>
 
 <script>
+import { DEFAULT_WEEKLY_SUMMARY_PROMPT } from '@/utils/deepseek.js'
+
 export default {
   data() {
     return {
@@ -73,7 +76,8 @@ export default {
       customApiBaseUrl: '',
       customApiKey: '',
       customModel: '',
-      customPrompt: ''
+      customPrompt: '',
+      promptLoadedFromDefault: true
     }
   },
   computed: {
@@ -94,7 +98,10 @@ export default {
       this.customApiBaseUrl = uni.getStorageSync('ai_custom_api_base_url') || ''
       this.customApiKey = uni.getStorageSync('ai_custom_api_key') || ''
       this.customModel = uni.getStorageSync('ai_custom_model') || ''
-      this.customPrompt = uni.getStorageSync('summary_prompt_template') || ''
+
+      const savedPrompt = uni.getStorageSync('summary_prompt_template') || ''
+      this.promptLoadedFromDefault = !savedPrompt.trim()
+      this.customPrompt = savedPrompt || DEFAULT_WEEKLY_SUMMARY_PROMPT
     },
     onApiTypeChange(e) {
       this.apiTypeIndex = e.detail.value
@@ -106,11 +113,41 @@ export default {
       uni.setStorageSync('ai_custom_api_base_url', this.customApiBaseUrl)
       uni.setStorageSync('ai_custom_api_key', this.customApiKey)
       uni.setStorageSync('ai_custom_model', this.customModel)
-      uni.setStorageSync('summary_prompt_template', this.customPrompt)
+
+      const prompt = (this.customPrompt || '').trim()
+      const defaultPrompt = DEFAULT_WEEKLY_SUMMARY_PROMPT.trim()
+
+      if (!prompt || (this.promptLoadedFromDefault && prompt === defaultPrompt)) {
+        uni.removeStorageSync('summary_prompt_template')
+      } else {
+        uni.setStorageSync('summary_prompt_template', this.customPrompt)
+      }
       
       uni.showToast({
         title: '保存成功',
         icon: 'success'
+      })
+    },
+    resetDefaultSettings() {
+      uni.showModal({
+        title: '恢复默认设置',
+        content: '将恢复默认模型并重置周总结 Prompt，是否继续？',
+        success: (res) => {
+          if (!res.confirm) return
+
+          const defaultIndex = this.apiTypes.findIndex(item => item.value === 'default')
+          this.apiTypeIndex = defaultIndex >= 0 ? defaultIndex : 0
+          this.customPrompt = DEFAULT_WEEKLY_SUMMARY_PROMPT
+          this.promptLoadedFromDefault = true
+
+          uni.setStorageSync('ai_api_type', 'default')
+          uni.removeStorageSync('summary_prompt_template')
+
+          uni.showToast({
+            title: '已恢复默认设置',
+            icon: 'success'
+          })
+        }
       })
     }
   }
@@ -177,5 +214,12 @@ export default {
 .action-btn {
   margin-top: 30px;
   padding: 0 15px;
+
+  .reset-btn {
+    margin-top: 12px;
+    background-color: #fff;
+    color: #666;
+    border: 1px solid #ddd;
+  }
 }
 </style>
