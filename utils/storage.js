@@ -10,7 +10,8 @@ const STORAGE_KEYS = {
   USER_LICENSE: 'user_license_profile', // 用户授权信息
   SUMMARY_QUOTA_USAGE: 'summary_quota_usage', // 周总结配额使用情况
   REWARD_RULES: 'reward_rules', // 奖励规则
-  REWARD_POINTS_LOG: 'reward_points_log' // 奖励积分流水
+  REWARD_POINTS_LOG: 'reward_points_log', // 奖励积分流水
+  REWARD_PRIZES: 'reward_prizes' // 奖品兑换配置
 }
 
 export const DEFAULT_FREE_MONTHLY_LIMIT = 5
@@ -66,6 +67,28 @@ function normalizeRewardPointLog(item) {
     manualOverride: Boolean(item.manualOverride),
     createTime: Number(item.createTime) || Date.now(),
     updateTime: Number(item.updateTime) || Date.now()
+  }
+}
+
+function normalizeRewardPrize(item) {
+  if (!item || typeof item !== 'object') return null
+
+  const name = String(item.name || '').trim()
+  const cost = Number(item.cost)
+  if (!name || !Number.isFinite(cost) || cost <= 0) {
+    return null
+  }
+
+  const now = Date.now()
+
+  return {
+    id: typeof item.id === 'string' && item.id.trim() ? item.id : createLocalId('prize'),
+    name,
+    cost: Math.floor(cost),
+    description: String(item.description || '').trim(),
+    enabled: item.enabled !== false,
+    createTime: Number(item.createTime) || now,
+    updateTime: Number(item.updateTime) || now
   }
 }
 
@@ -666,4 +689,80 @@ export function revokePendingRewardPoint(pointId) {
     entry: logs[index],
     stats: getRewardPointsOverview(logs)
   }
+}
+
+/**
+ * 获取奖品配置
+ * @returns {Array}
+ */
+export function getRewardPrizes() {
+  try {
+    const data = uni.getStorageSync(STORAGE_KEYS.REWARD_PRIZES)
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data
+      .map(normalizeRewardPrize)
+      .filter(Boolean)
+      .sort((a, b) => b.updateTime - a.updateTime)
+  } catch (error) {
+    console.error('读取奖品配置失败:', error)
+    return []
+  }
+}
+
+/**
+ * 保存奖品配置
+ * @param {Array} prizes
+ * @returns {boolean}
+ */
+export function saveRewardPrizes(prizes) {
+  try {
+    const list = Array.isArray(prizes)
+      ? prizes.map(normalizeRewardPrize).filter(Boolean)
+      : []
+    uni.setStorageSync(STORAGE_KEYS.REWARD_PRIZES, list)
+    return true
+  } catch (error) {
+    console.error('保存奖品配置失败:', error)
+    return false
+  }
+}
+
+/**
+ * 新增或更新奖品
+ * @param {Object} prize
+ * @returns {Object|null}
+ */
+export function upsertRewardPrize(prize) {
+  const normalized = normalizeRewardPrize(prize)
+  if (!normalized) {
+    return null
+  }
+
+  const list = getRewardPrizes()
+  const index = list.findIndex(item => item.id === normalized.id)
+
+  if (index >= 0) {
+    normalized.createTime = list[index].createTime
+    list[index] = normalized
+  } else {
+    list.unshift(normalized)
+  }
+
+  const success = saveRewardPrizes(list)
+  return success ? normalized : null
+}
+
+/**
+ * 删除奖品
+ * @param {string} prizeId
+ * @returns {boolean}
+ */
+export function deleteRewardPrize(prizeId) {
+  if (!prizeId) return false
+
+  const list = getRewardPrizes().filter(item => item.id !== prizeId)
+  return saveRewardPrizes(list)
 }

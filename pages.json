@@ -19,6 +19,12 @@
 			"style": {
 				"navigationBarTitleText": "设置"
 			}
+		},
+		{
+			"path": "pages/reward/prizes",
+			"style": {
+				"navigationBarTitleText": "奖品设置"
+			}
 		}
 	],
 	"globalStyle": {

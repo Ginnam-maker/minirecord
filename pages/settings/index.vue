@@ -50,10 +50,9 @@
     </view>
 
     <view class="section">
-      <text class="title">奖励规则（MVP）</text>
+      <text class="title">奖励规则</text>
       <view class="settings-list">
         <view class="item-col">
-          <text class="label">新增规则（自然语言）</text>
           <textarea class="textarea rule-input" v-model="newRuleText" placeholder="示例：每天读书超过5分钟加1分"></textarea>
           <button class="add-rule-btn" type="primary" size="mini" :loading="parsingRule" @click="handleAddRule">
             {{ parsingRule ? '解析中...' : '解析并添加' }}
@@ -74,6 +73,16 @@
             <switch :checked="rule.enabled !== false" @change="onRuleEnabledChange($event, rule)" />
             <text class="delete-link" @click="removeRule(rule)">删除</text>
           </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="title">奖品兑换</text>
+      <view class="settings-list">
+        <view class="item nav-item" @click="goPrizeSettings">
+          <text class="label">奖品设置</text>
+          <text class="nav-arrow">></text>
         </view>
       </view>
     </view>
@@ -273,6 +282,11 @@ export default {
           })
         }
       })
+    },
+    goPrizeSettings() {
+      uni.navigateTo({
+        url: '/pages/reward/prizes'
+      })
     }
   }
 }
@@ -305,6 +319,15 @@ export default {
   padding: 15px;
   border-bottom: 1px solid #eee;
   font-size: 15px;
+}
+
+.nav-item {
+  cursor: pointer;
+}
+
+.nav-arrow {
+  color: #999;
+  font-size: 14px;
 }
 .item:last-child {
   border-bottom: none;
