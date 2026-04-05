@@ -1,70 +1,100 @@
 <template>
   <view class="prizes-page">
     <view class="page-shell">
+      <!-- 顶部横幅 -->
       <view class="hero">
-        <text class="hero-tag">积分商城</text>
-        <text class="hero-title">奖品兑换设置</text>
-        <text class="hero-desc">配置每个奖品需要多少积分，保存后可用于后续兑换。</text>
+        <view class="hero-icon">🎁</view>
+        <view class="hero-content">
+          <text class="hero-tag">✨ 积分商城</text>
+          <text class="hero-title">奖品兑换设置</text>
+          <text class="hero-desc">配置奖品和积分，打造专属奖励体系</text>
+        </view>
       </view>
 
+      <!-- 统计卡片 -->
       <view class="stat-grid">
-        <view class="stat-card">
-          <text class="stat-value">{{ prizes.length }}</text>
-          <text class="stat-label">奖品总数</text>
+        <view class="stat-card stat-card-primary">
+          <view class="stat-icon">📦</view>
+          <view class="stat-info">
+            <text class="stat-value">{{ prizes.length }}</text>
+            <text class="stat-label">奖品总数</text>
+          </view>
         </view>
-        <view class="stat-card">
-          <text class="stat-value">{{ enabledPrizeCount }}</text>
-          <text class="stat-label">启用中</text>
+        <view class="stat-card stat-card-success">
+          <view class="stat-icon">✅</view>
+          <view class="stat-info">
+            <text class="stat-value">{{ enabledPrizeCount }}</text>
+            <text class="stat-label">启用中</text>
+          </view>
         </view>
       </view>
 
-      <view class="section-card">
+      <!-- 新增奖品表单 -->
+      <view class="section-card form-card">
         <view class="section-head">
-          <text class="section-title">新增奖品</text>
+          <view class="section-title-wrapper">
+            <text class="section-icon">➕</text>
+            <text class="section-title">新增奖品</text>
+          </view>
           <text class="section-subtitle">填写后点击保存，即可加入兑换列表</text>
         </view>
 
-        <view class="field">
-          <text class="label">奖品名称</text>
-          <input
-            class="input"
-            type="text"
-            :value="formName"
-            maxlength="20"
-            placeholder="例如：看一场电影"
-            @input="onNameInput"
-          />
+        <view class="form-grid">
+          <view class="field">
+            <view class="label-wrapper">
+              <text class="label-icon">🏷️</text>
+              <text class="label">奖品名称</text>
+            </view>
+            <input
+              class="input"
+              type="text"
+              v-model="formName"
+              maxlength="20"
+              placeholder="例如：看一场电影"
+            />
+          </view>
+
+          <view class="field">
+            <view class="label-wrapper">
+              <text class="label-icon">💰</text>
+              <text class="label">兑换积分</text>
+            </view>
+            <input
+              class="input"
+              type="number"
+              v-model="formCost"
+              maxlength="6"
+              placeholder="例如：30"
+            />
+          </view>
+
+          <view class="field field-full">
+            <view class="label-wrapper">
+              <text class="label-icon">📝</text>
+              <text class="label">备注（可选）</text>
+            </view>
+            <textarea
+              class="textarea"
+              v-model="formDescription"
+              maxlength="100"
+              placeholder="例如：每周最多兑换一次"
+            ></textarea>
+          </view>
         </view>
 
-        <view class="field">
-          <text class="label">兑换积分</text>
-          <input
-            class="input"
-            type="number"
-            :value="formCost"
-            maxlength="6"
-            placeholder="例如：30"
-            @input="onCostInput"
-          />
-        </view>
-
-        <view class="field">
-          <text class="label">备注（可选）</text>
-          <textarea
-            class="textarea"
-            :value="formDescription"
-            maxlength="100"
-            placeholder="例如：每周最多兑换一次"
-            @input="onDescriptionInput"
-          ></textarea>
-        </view>
-
-        <button class="add-btn" @click="handleAddPrize">保存奖品</button>
+        <button class="add-btn" @click="handleAddPrize">
+          <text class="btn-icon">💾</text>
+          <text>保存奖品</text>
+        </button>
       </view>
 
+      <!-- 奖品列表 -->
       <view class="section-card list-card">
         <view class="section-head">
-          <text class="section-title">奖品列表</text>
+          <view class="section-title-wrapper">
+            <text class="section-icon">📋</text>
+            <text class="section-title">奖品列表</text>
+          </view>
           <text class="section-subtitle">支持启用、停用和删除</text>
         </view>
 
@@ -73,25 +103,39 @@
           <text class="empty-text">还没有奖品，先添加第一项吧</text>
         </view>
 
-        <view v-else>
-          <view v-for="item in prizes" :key="item.id" class="prize-item">
+        <view v-else class="prize-list">
+          <view v-for="item in prizes" :key="item.id" class="prize-item" :class="{ disabled: item.enabled === false }">
             <view class="prize-main">
               <view class="prize-header">
+                <text class="prize-emoji">🎯</text>
                 <text class="prize-name">{{ item.name }}</text>
-                <text class="status-chip" :class="item.enabled === false ? 'off' : 'on'">
-                  {{ item.enabled === false ? '停用' : '启用' }}
-                </text>
+                <view class="status-chip" :class="item.enabled === false ? 'off' : 'on'">
+                  <text class="status-dot"></text>
+                  <text class="status-text">{{ item.enabled === false ? '停用' : '启用' }}</text>
+                </view>
               </view>
               <view class="prize-meta">
-                <text class="cost-chip">{{ item.cost }} 积分</text>
-                <text class="cost-label">可兑换</text>
+                <view class="cost-badge">
+                  <text class="cost-icon">💎</text>
+                  <text class="cost-value">{{ item.cost }}</text>
+                  <text class="cost-unit">积分</text>
+                </view>
               </view>
-              <text v-if="item.description" class="prize-desc">{{ item.description }}</text>
+              <text v-if="item.description" class="prize-desc">💬 {{ item.description }}</text>
             </view>
 
             <view class="prize-actions">
-              <switch :checked="item.enabled !== false" @change="onToggleEnabled($event, item)" />
-              <text class="delete-link" @click="onDeletePrize(item)">删除</text>
+              <view class="switch-wrapper">
+                <switch 
+                  class="prize-switch"
+                  :checked="item.enabled !== false" 
+                  @change="onToggleEnabled($event, item)" 
+                  color="#10b981"
+                />
+              </view>
+              <view class="delete-btn" @click="onDeletePrize(item)">
+                <text class="delete-icon">🗑️</text>
+              </view>
             </view>
           </view>
         </view>
@@ -127,15 +171,6 @@ export default {
   methods: {
     loadPrizes() {
       this.prizes = getRewardPrizes()
-    },
-    onNameInput(event) {
-      this.formName = event?.detail?.value || ''
-    },
-    onCostInput(event) {
-      this.formCost = event?.detail?.value || ''
-    },
-    onDescriptionInput(event) {
-      this.formDescription = event?.detail?.value || ''
     },
     resetForm() {
       this.formName = ''
@@ -233,76 +268,186 @@ export default {
 </script>
 
 <style lang="scss">
+// 色彩变量
 .prizes-page {
-  --brand-color: #ff8a3d;
-  --brand-strong: #ff6a00;
-  --text-main: #2c2f36;
-  --text-secondary: #687282;
-  --line-soft: #eef2f7;
+  // 主题色
+  --primary-gradient-start: #6366f1;
+  --primary-gradient-end: #8b5cf6;
+  --primary-color: #7c3aed;
+  --primary-light: #a78bfa;
+  
+  // 成功色
+  --success-color: #10b981;
+  --success-light: #d1fae5;
+  
+  // 警告色
+  --warning-color: #f59e0b;
+  --warning-light: #fef3c7;
+  
+  // 危险色
+  --danger-color: #ef4444;
+  --danger-light: #fee2e2;
+  
+  // 文字色
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  
+  // 背景色
+  --bg-page: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-input: #f3f4f6;
+  
+  // 边框色
+  --border-light: #e5e7eb;
+  --border-normal: #d1d5db;
+  
+  // 阴影
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
   min-height: 100vh;
-  background: linear-gradient(180deg, #fff8f1 0%, #fff0de 48%, #f6f9ff 100%);
-  padding: 24rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-attachment: fixed;
+  padding: 32rpx;
   box-sizing: border-box;
 }
 
 .page-shell {
-  max-width: 860px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
+// ========== 顶部横幅 ==========
 .hero {
-  background: linear-gradient(135deg, #ff9f57 0%, #ff7a18 65%, #ff6a00 100%);
-  border-radius: 28rpx;
-  padding: 30rpx;
-  box-shadow: 0 18rpx 32rpx rgba(255, 125, 40, 0.25);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 32rpx;
+  padding: 40rpx;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300rpx;
+    height: 300rpx;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+}
+
+.hero-icon {
+  font-size: 80rpx;
+  line-height: 1;
+  animation: bounce 2s infinite;
+  z-index: 1;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10rpx); }
+}
+
+.hero-content {
+  flex: 1;
+  z-index: 1;
 }
 
 .hero-tag {
   display: inline-block;
-  padding: 6rpx 16rpx;
+  padding: 8rpx 20rpx;
   border-radius: 999rpx;
-  background-color: rgba(255, 255, 255, 0.24);
+  background-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
   color: #fff;
-  font-size: 22rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  margin-bottom: 16rpx;
 }
 
 .hero-title {
   display: block;
-  margin-top: 14rpx;
-  font-size: 40rpx;
+  font-size: 48rpx;
   font-weight: 700;
   color: #fff;
+  margin-bottom: 12rpx;
+  letter-spacing: 1rpx;
 }
 
 .hero-desc {
   display: block;
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.6;
 }
 
+// ========== 统计卡片 ==========
 .stat-grid {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   display: flex;
-  gap: 16rpx;
+  gap: 20rpx;
 }
 
 .stat-card {
   flex: 1;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
-  border: 1px solid #fff4e9;
-  box-shadow: 0 10rpx 24rpx rgba(56, 66, 80, 0.08);
+  background: var(--bg-card);
+  border-radius: 24rpx;
+  padding: 32rpx 28rpx;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.stat-card-primary {
+  border-color: rgba(124, 58, 237, 0.1);
+  background: linear-gradient(135deg, #fff 0%, #f5f3ff 100%);
+}
+
+.stat-card-success {
+  border-color: rgba(16, 185, 129, 0.1);
+  background: linear-gradient(135deg, #fff 0%, #f0fdf4 100%);
+}
+
+.stat-icon {
+  font-size: 56rpx;
+  line-height: 1;
+}
+
+.stat-info {
+  flex: 1;
 }
 
 .stat-value {
   display: block;
-  font-size: 42rpx;
-  color: var(--brand-strong);
+  font-size: 52rpx;
   font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+
+.stat-card-success .stat-value {
+  background: linear-gradient(135deg, var(--success-color), #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .stat-label {
@@ -310,97 +455,191 @@ export default {
   margin-top: 8rpx;
   font-size: 24rpx;
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
+// ========== 卡片容器 ==========
 .section-card {
-  margin-top: 20rpx;
-  background-color: #fff;
-  border-radius: 24rpx;
-  padding: 24rpx;
-  box-shadow: 0 12rpx 28rpx rgba(57, 67, 82, 0.09);
+  margin-top: 24rpx;
+  background-color: var(--bg-card);
+  border-radius: 28rpx;
+  padding: 36rpx;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-light);
 }
 
 .section-head {
-  margin-bottom: 18rpx;
+  margin-bottom: 32rpx;
+}
+
+.section-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.section-icon {
+  font-size: 36rpx;
+  line-height: 1;
 }
 
 .section-title {
-  display: block;
-  font-size: 30rpx;
-  color: var(--text-main);
-  font-weight: 600;
+  font-size: 36rpx;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.5rpx;
 }
 
 .section-subtitle {
   display: block;
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  color: #8f99a9;
+  font-size: 24rpx;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  padding-left: 48rpx;
 }
 
-.field + .field {
-  margin-top: 18rpx;
+// ========== 表单样式 ==========
+.form-card {
+  background: linear-gradient(135deg, #fff 0%, #faf5ff 100%);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.label-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 12rpx;
+}
+
+.label-icon {
+  font-size: 28rpx;
+  line-height: 1;
 }
 
 .label {
-  display: block;
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
-  margin-bottom: 10rpx;
+  font-weight: 500;
 }
 
 .input,
 .textarea {
   width: 100%;
   font-size: 28rpx;
-  color: var(--text-main);
-  background-color: #f8fafc;
-  border: 1px solid var(--line-soft);
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  border: 2px solid var(--border-light);
   border-radius: 16rpx;
-  padding: 18rpx 20rpx;
+  padding: 20rpx 24rpx;
   box-sizing: border-box;
+  transition: all 0.3s ease;
+  
+  &:focus {
+    background-color: #fff;
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 4rpx rgba(124, 58, 237, 0.1);
+  }
 }
 
 .textarea {
-  min-height: 140rpx;
+  min-height: 160rpx;
+  font-family: inherit;
+  line-height: 1.6;
 }
 
 .add-btn {
-  margin-top: 24rpx;
+  margin-top: 32rpx;
   border: none;
-  border-radius: 999rpx;
+  border-radius: 16rpx;
   color: #fff;
-  background: linear-gradient(135deg, var(--brand-color), var(--brand-strong));
-  box-shadow: 0 14rpx 24rpx rgba(255, 122, 24, 0.28);
+  font-size: 30rpx;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+  box-shadow: 0 8rpx 24rpx rgba(124, 58, 237, 0.3);
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  transition: all 0.3s ease;
+  
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 4rpx 12rpx rgba(124, 58, 237, 0.4);
+  }
 }
 
+.btn-icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+// ========== 空状态 ==========
 .empty-state {
-  padding: 22rpx 0 10rpx;
+  padding: 80rpx 0;
   display: flex;
   align-items: center;
   flex-direction: column;
 }
 
 .empty-emoji {
-  font-size: 48rpx;
+  font-size: 96rpx;
+  line-height: 1;
+  margin-bottom: 24rpx;
+  opacity: 0.6;
 }
 
 .empty-text {
-  margin-top: 12rpx;
-  color: #95a0b2;
-  font-size: 24rpx;
+  color: var(--text-tertiary);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+// ========== 奖品列表 ==========
+.list-card {
+  background: linear-gradient(135deg, #fff 0%, #f0fdf4 100%);
+}
+
+.prize-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
 
 .prize-item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 22rpx 0;
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.prize-item:last-child {
-  border-bottom: none;
+  align-items: center;
+  padding: 28rpx;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 2px solid var(--border-light);
+  border-radius: 20rpx;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    border-color: var(--primary-light);
+  }
+  
+  &.disabled {
+    opacity: 0.6;
+    background: rgba(255, 255, 255, 0.5);
+  }
 }
 
 .prize-main {
@@ -408,17 +647,26 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 12rpx;
 }
 
 .prize-header {
   display: flex;
   align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.prize-emoji {
+  font-size: 36rpx;
+  line-height: 1;
 }
 
 .prize-name {
-  max-width: 430rpx;
-  font-size: 30rpx;
-  color: var(--text-main);
+  flex: 1;
+  min-width: 0;
+  font-size: 32rpx;
+  color: var(--text-primary);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -426,60 +674,128 @@ export default {
 }
 
 .status-chip {
-  margin-left: 12rpx;
-  font-size: 20rpx;
-  padding: 4rpx 12rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  padding: 6rpx 16rpx;
   border-radius: 999rpx;
+}
+
+.status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
 }
 
 .status-chip.on {
-  color: #0f8f5b;
-  background-color: #eafaf3;
+  color: var(--success-color);
+  background-color: var(--success-light);
+  
+  .status-dot {
+    background-color: var(--success-color);
+    box-shadow: 0 0 8rpx rgba(16, 185, 129, 0.5);
+  }
 }
 
 .status-chip.off {
-  color: #8f97a6;
-  background-color: #f1f4f8;
+  color: var(--text-tertiary);
+  background-color: #f3f4f6;
+  
+  .status-dot {
+    background-color: var(--text-tertiary);
+  }
 }
 
 .prize-meta {
-  margin-top: 10rpx;
   display: flex;
   align-items: center;
 }
 
-.cost-chip {
-  background-color: #fff4e8;
-  color: #d26300;
-  font-size: 22rpx;
-  border-radius: 999rpx;
-  padding: 6rpx 16rpx;
+.cost-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 2px solid #fbbf24;
+  color: #92400e;
+  font-weight: 600;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
 }
 
-.cost-label {
-  margin-left: 12rpx;
+.cost-icon {
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.cost-value {
+  font-size: 28rpx;
+}
+
+.cost-unit {
   font-size: 22rpx;
-  color: #8d97a8;
+  opacity: 0.8;
 }
 
 .prize-desc {
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: #8a94a3;
-  line-height: 1.5;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 12rpx 16rpx;
+  background-color: rgba(243, 244, 246, 0.5);
+  border-radius: 12rpx;
+  border-left: 4rpx solid var(--primary-light);
 }
 
 .prize-actions {
-  margin-left: 16rpx;
+  margin-left: 24rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 16rpx;
 }
 
-.delete-link {
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: #dd524d;
+.switch-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.prize-switch {
+  transform: scale(0.9);
+}
+
+.delete-btn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger-light);
+  border-radius: 12rpx;
+  transition: all 0.3s ease;
+  
+  &:active {
+    transform: scale(0.95);
+    background: #fecaca;
+  }
+}
+
+.delete-icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+// ========== 响应式设计 ==========
+@media screen and (max-width: 750rpx) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .field-full {
+    grid-column: 1;
+  }
 }
 
 @media screen and (min-width: 960px) {
@@ -488,28 +804,19 @@ export default {
   }
 
   .hero-title {
-    font-size: 34px;
+    font-size: 32px;
   }
 
-  .hero-desc,
-  .stat-label,
-  .label,
-  .section-subtitle,
-  .cost-label,
-  .prize-desc,
-  .delete-link {
-    font-size: 14px;
+  .hero-desc {
+    font-size: 15px;
   }
 
-  .section-title,
-  .prize-name,
-  .input,
-  .textarea {
-    font-size: 17px;
+  .section-title {
+    font-size: 20px;
   }
-
-  .stat-value {
-    font-size: 28px;
+  
+  .prize-name {
+    font-size: 18px;
   }
 }
 </style>

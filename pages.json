@@ -21,6 +21,18 @@
 			}
 		},
 		{
+			"path": "pages/settings/basic-config",
+			"style": {
+				"navigationBarTitleText": "基本设置与Prompt"
+			}
+		},
+		{
+			"path": "pages/settings/reward-rules",
+			"style": {
+				"navigationBarTitleText": "奖励规则"
+			}
+		},
+		{
 			"path": "pages/reward/prizes",
 			"style": {
 				"navigationBarTitleText": "奖品设置"

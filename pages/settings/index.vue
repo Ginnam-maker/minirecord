@@ -1,286 +1,36 @@
 <template>
   <view class="settings-container">
     <view class="section">
-      <text class="title">基本设置</text>
+      <text class="title">功能设置</text>
       <view class="settings-list">
-        <view class="item">
-          <text class="label">当前使用的AI模型</text>
-          <picker :value="apiTypeIndex" :range="apiTypes" range-key="name" @change="onApiTypeChange">
-            <view class="picker-value">{{ apiTypes[apiTypeIndex].name }}</view>
-          </picker>
+        <view class="item nav-item" @click="goBasicConfig">
+          <text class="label">基本设置与Prompt</text>
+          <text class="nav-arrow">></text>
         </view>
-      </view>
-    </view>
-
-    <!-- 自定义 API 设置 -->
-    <view class="section" v-if="currentApiType === 'custom'">
-      <text class="title">自定义 API 接口配置</text>
-      <view class="settings-list">
-        <view class="item-col">
-          <text class="label">API Base URL</text>
-          <input class="input" type="text" v-model="customApiBaseUrl" placeholder="如: https://api.openai.com/v1" />
+        <view class="item nav-item" @click="goRewardRules">
+          <text class="label">奖励规则</text>
+          <text class="nav-arrow">></text>
         </view>
-        <view class="item-col">
-          <text class="label">API Key</text>
-          <input class="input" type="text" v-model="customApiKey" placeholder="sk-..." />
-        </view>
-        <view class="item-col">
-          <text class="label">模型名称 (Model)</text>
-          <input class="input" type="text" v-model="customModel" placeholder="如: gpt-3.5-turbo" />
-        </view>
-      </view>
-    </view>
-
-    <!-- 内置 API 的设置（默认模型不显示配置项） -->
-    <view class="section" v-else-if="currentApiType !== 'default'">
-      <text class="title">{{ apiTypes[apiTypeIndex].name }} 配置</text>
-      <view class="settings-list">
-        <view class="item-col">
-          <text class="label">API Key</text>
-          <input class="input" type="text" v-model="apiKey" placeholder="输入您的 API Key" />
-        </view>
-      </view>
-    </view>
-
-    <view class="section">
-      <text class="title">自定义Prompt</text>
-      <view class="settings-list">
-        <textarea class="textarea" v-model="customPrompt" placeholder="如果你想改变AI分析报告的倾向，可以在此修改（需包含 {{records}} 占位符）"></textarea>
-      </view>
-    </view>
-
-    <view class="section">
-      <text class="title">奖励规则</text>
-      <view class="settings-list">
-        <view class="item-col">
-          <textarea class="textarea rule-input" v-model="newRuleText" placeholder="示例：每天读书超过5分钟加1分"></textarea>
-          <button class="add-rule-btn" type="primary" size="mini" :loading="parsingRule" @click="handleAddRule">
-            {{ parsingRule ? '解析中...' : '解析并添加' }}
-          </button>
-          <text class="rule-hint">当前仅支持正向加分规则，负分规则暂不开放。</text>
-        </view>
-
-        <view v-if="rewardRules.length === 0" class="empty-rule">
-          <text>暂无奖励规则，添加后会在保存记录时自动匹配。</text>
-        </view>
-
-        <view v-for="rule in rewardRules" :key="rule.id" class="rule-item">
-          <view class="rule-main">
-            <text class="rule-text">{{ rule.originalText }}</text>
-            <text class="rule-meta">+{{ rule.reward }} 分 · {{ rule.flexibility === 'strict' ? '严格' : '宽松' }}</text>
-          </view>
-          <view class="rule-actions">
-            <switch :checked="rule.enabled !== false" @change="onRuleEnabledChange($event, rule)" />
-            <text class="delete-link" @click="removeRule(rule)">删除</text>
-          </view>
-        </view>
-      </view>
-    </view>
-
-    <view class="section">
-      <text class="title">奖品兑换</text>
-      <view class="settings-list">
         <view class="item nav-item" @click="goPrizeSettings">
           <text class="label">奖品设置</text>
           <text class="nav-arrow">></text>
         </view>
       </view>
     </view>
-
-    <view class="action-btn">
-      <button type="primary" @click="saveSettings">保存设置</button>
-      <button class="reset-btn" @click="resetDefaultSettings">恢复默认设置</button>
-    </view>
   </view>
 </template>
 
 <script>
-import { DEFAULT_WEEKLY_SUMMARY_PROMPT } from '@/utils/deepseek.js'
-import {
-  getRewardRules,
-  upsertRewardRule,
-  deleteRewardRule as deleteRewardRuleById
-} from '@/utils/storage.js'
-import { parseRewardRuleText } from '@/utils/rewardEngine.js'
-
 export default {
-  data() {
-    return {
-      apiTypes: [
-        { name: '默认模型', value: 'default' },
-        { name: 'DeepSeek', value: 'deepseek' },
-        { name: 'Kimi (Moonshot)', value: 'moonshot' },
-        { name: '阿里云 (通义千问)', value: 'qwen' },
-        { name: '智谱 AI (GLM)', value: 'zhipu' },
-        { name: '硅基流动 (SiliconFlow)', value: 'siliconflow' },
-        { name: '自定义 API (兼容 OpenAI)', value: 'custom' }
-      ],
-      apiTypeIndex: 0,
-      apiKey: '',
-      customApiBaseUrl: '',
-      customApiKey: '',
-      customModel: '',
-      customPrompt: '',
-      promptLoadedFromDefault: true,
-      rewardRules: [],
-      newRuleText: '',
-      parsingRule: false
-    }
-  },
-  computed: {
-    currentApiType() {
-      return this.apiTypes[this.apiTypeIndex]?.value || 'default'
-    }
-  },
-  onLoad() {
-    this.loadSettings()
-  },
   methods: {
-    loadSettings() {
-      const type = uni.getStorageSync('ai_api_type') || 'default'
-      const index = this.apiTypes.findIndex(item => item.value === type)
-      this.apiTypeIndex = index >= 0 ? index : 0
-      
-      this.apiKey = uni.getStorageSync('ai_api_key_default') || ''
-      this.customApiBaseUrl = uni.getStorageSync('ai_custom_api_base_url') || ''
-      this.customApiKey = uni.getStorageSync('ai_custom_api_key') || ''
-      this.customModel = uni.getStorageSync('ai_custom_model') || ''
-
-      const savedPrompt = uni.getStorageSync('summary_prompt_template') || ''
-      this.promptLoadedFromDefault = !savedPrompt.trim()
-      this.customPrompt = savedPrompt || DEFAULT_WEEKLY_SUMMARY_PROMPT
-
-      this.loadRewardRules()
-    },
-    onApiTypeChange(e) {
-      this.apiTypeIndex = e.detail.value
-    },
-    saveSettings() {
-      const type = this.apiTypes[this.apiTypeIndex].value
-      uni.setStorageSync('ai_api_type', type)
-      uni.setStorageSync('ai_api_key_default', this.apiKey)
-      uni.setStorageSync('ai_custom_api_base_url', this.customApiBaseUrl)
-      uni.setStorageSync('ai_custom_api_key', this.customApiKey)
-      uni.setStorageSync('ai_custom_model', this.customModel)
-
-      const prompt = (this.customPrompt || '').trim()
-      const defaultPrompt = DEFAULT_WEEKLY_SUMMARY_PROMPT.trim()
-
-      if (!prompt || (this.promptLoadedFromDefault && prompt === defaultPrompt)) {
-        uni.removeStorageSync('summary_prompt_template')
-      } else {
-        uni.setStorageSync('summary_prompt_template', this.customPrompt)
-      }
-      
-      uni.showToast({
-        title: '保存成功',
-        icon: 'success'
+    goBasicConfig() {
+      uni.navigateTo({
+        url: '/pages/settings/basic-config'
       })
     },
-    resetDefaultSettings() {
-      uni.showModal({
-        title: '恢复默认设置',
-        content: '将恢复默认模型并重置Prompt，是否继续？',
-        success: (res) => {
-          if (!res.confirm) return
-
-          const defaultIndex = this.apiTypes.findIndex(item => item.value === 'default')
-          this.apiTypeIndex = defaultIndex >= 0 ? defaultIndex : 0
-          this.customPrompt = DEFAULT_WEEKLY_SUMMARY_PROMPT
-          this.promptLoadedFromDefault = true
-
-          uni.setStorageSync('ai_api_type', 'default')
-          uni.removeStorageSync('summary_prompt_template')
-
-          uni.showToast({
-            title: '已恢复默认设置',
-            icon: 'success'
-          })
-        }
-      })
-    },
-    loadRewardRules() {
-      this.rewardRules = getRewardRules()
-    },
-    async handleAddRule() {
-      const text = (this.newRuleText || '').trim()
-      if (!text) {
-        uni.showToast({
-          title: '请输入规则内容',
-          icon: 'none'
-        })
-        return
-      }
-
-      this.parsingRule = true
-      const result = await parseRewardRuleText(text)
-      this.parsingRule = false
-
-      if (!result.success) {
-        uni.showToast({
-          title: result.error || '规则解析失败',
-          icon: 'none'
-        })
-        return
-      }
-
-      const saved = upsertRewardRule(result.rule)
-      if (!saved) {
-        uni.showToast({
-          title: '规则保存失败',
-          icon: 'none'
-        })
-        return
-      }
-
-      this.newRuleText = ''
-      this.loadRewardRules()
-      uni.showToast({
-        title: '规则已添加',
-        icon: 'success'
-      })
-    },
-    onRuleEnabledChange(event, rule) {
-      const enabled = Boolean(event?.detail?.value)
-      const updated = upsertRewardRule({
-        ...rule,
-        enabled
-      })
-
-      if (!updated) {
-        uni.showToast({
-          title: '更新失败，请重试',
-          icon: 'none'
-        })
-        return
-      }
-
-      this.loadRewardRules()
-    },
-    removeRule(rule) {
-      if (!rule?.id) return
-
-      uni.showModal({
-        title: '删除规则',
-        content: '确认删除这条奖励规则吗？',
-        success: (res) => {
-          if (!res.confirm) return
-
-          const success = deleteRewardRuleById(rule.id)
-          if (!success) {
-            uni.showToast({
-              title: '删除失败，请重试',
-              icon: 'none'
-            })
-            return
-          }
-
-          this.loadRewardRules()
-          uni.showToast({
-            title: '已删除',
-            icon: 'success'
-          })
-        }
+    goRewardRules() {
+      uni.navigateTo({
+        url: '/pages/settings/reward-rules'
       })
     },
     goPrizeSettings() {
@@ -331,105 +81,5 @@ export default {
 }
 .item:last-child {
   border-bottom: none;
-}
-.item-col {
-  display: flex;
-  flex-direction: column;
-  padding: 12px 15px;
-  border-bottom: 1px solid #eee;
-  
-  .label {
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
-  }
-}
-.picker-value {
-  color: #333;
-}
-.input {
-  font-size: 15px;
-  width: 100%;
-}
-.textarea {
-  width: 100%;
-  padding: 15px;
-  font-size: 15px;
-  box-sizing: border-box;
-  min-height: 150px;
-}
-
-.rule-input {
-  min-height: 100px;
-  margin-bottom: 8px;
-}
-
-.add-rule-btn {
-  width: 120px;
-}
-
-.rule-hint {
-  font-size: 12px;
-  color: #999;
-  margin-top: 8px;
-}
-
-.empty-rule {
-  padding: 14px 15px;
-  font-size: 13px;
-  color: #999;
-  border-top: 1px solid #eee;
-}
-
-.rule-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 15px;
-  border-top: 1px solid #eee;
-}
-
-.rule-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.rule-text {
-  font-size: 14px;
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rule-meta {
-  font-size: 12px;
-  color: #888;
-  margin-top: 4px;
-}
-
-.rule-actions {
-  display: flex;
-  align-items: center;
-  margin-left: 12px;
-}
-
-.delete-link {
-  margin-left: 10px;
-  color: #dd524d;
-  font-size: 13px;
-}
-.action-btn {
-  margin-top: 30px;
-  padding: 0 15px;
-
-  .reset-btn {
-    margin-top: 12px;
-    background-color: #fff;
-    color: #666;
-    border: 1px solid #ddd;
-  }
 }
 </style>
