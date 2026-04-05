@@ -8,11 +8,66 @@ const STORAGE_KEYS = {
   LAST_CHECK: 'last_summary_check', // 上次检查总结的时间
   SUMMARY_PROMPT_TEMPLATE: 'summary_prompt_template', // 周总结 Prompt 模板
   USER_LICENSE: 'user_license_profile', // 用户授权信息
-  SUMMARY_QUOTA_USAGE: 'summary_quota_usage' // 周总结配额使用情况
+  SUMMARY_QUOTA_USAGE: 'summary_quota_usage', // 周总结配额使用情况
+  REWARD_RULES: 'reward_rules', // 奖励规则
+  REWARD_POINTS_LOG: 'reward_points_log' // 奖励积分流水
 }
 
 export const DEFAULT_FREE_MONTHLY_LIMIT = 5
 export const DEFAULT_PRO_MONTHLY_LIMIT = 100
+
+function createLocalId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function normalizeRewardRule(rule) {
+  if (!rule || typeof rule !== 'object') return null
+
+  const reward = Number(rule.reward)
+  if (!Number.isFinite(reward) || reward <= 0) {
+    return null
+  }
+
+  const now = Date.now()
+  const flexibility = rule.flexibility === 'strict' ? 'strict' : 'lenient'
+
+  return {
+    id: typeof rule.id === 'string' && rule.id.trim() ? rule.id : createLocalId('rule'),
+    originalText: String(rule.originalText || '').trim(),
+    intent: String(rule.intent || 'general'),
+    condition: rule.condition && typeof rule.condition === 'object' ? rule.condition : null,
+    reward,
+    flexibility,
+    enabled: rule.enabled !== false,
+    createTime: Number(rule.createTime) || now,
+    updateTime: Number(rule.updateTime) || now
+  }
+}
+
+function normalizeRewardPointLog(item) {
+  if (!item || typeof item !== 'object') return null
+
+  const points = Number(item.points)
+  if (!Number.isFinite(points) || points <= 0) {
+    return null
+  }
+
+  const status = item.status === 'pending' || item.status === 'revoked' ? item.status : 'confirmed'
+
+  return {
+    id: typeof item.id === 'string' && item.id.trim() ? item.id : createLocalId('point'),
+    date: String(item.date || '').trim(),
+    ruleId: String(item.ruleId || '').trim(),
+    ruleText: String(item.ruleText || '').trim(),
+    points,
+    confidence: Number(item.confidence) || 0,
+    status,
+    reason: String(item.reason || '').trim(),
+    manualOverride: Boolean(item.manualOverride),
+    createTime: Number(item.createTime) || Date.now(),
+    updateTime: Number(item.updateTime) || Date.now()
+  }
+}
 
 function parseYmdToLocalDate(dateStr) {
   if (typeof dateStr !== 'string') return null
@@ -359,5 +414,256 @@ export function saveSummaryQuotaUsage(usage) {
   } catch (error) {
     console.error('保存周总结配额失败:', error)
     return false
+  }
+}
+
+/**
+ * 获取奖励规则列表
+ * @returns {Array}
+ */
+export function getRewardRules() {
+  try {
+    const data = uni.getStorageSync(STORAGE_KEYS.REWARD_RULES)
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data
+      .map(normalizeRewardRule)
+      .filter(Boolean)
+      .sort((a, b) => b.updateTime - a.updateTime)
+  } catch (error) {
+    console.error('读取奖励规则失败:', error)
+    return []
+  }
+}
+
+/**
+ * 保存奖励规则列表
+ * @param {Array} rules
+ * @returns {boolean}
+ */
+export function saveRewardRules(rules) {
+  try {
+    const list = Array.isArray(rules)
+      ? rules.map(normalizeRewardRule).filter(Boolean)
+      : []
+    uni.setStorageSync(STORAGE_KEYS.REWARD_RULES, list)
+    return true
+  } catch (error) {
+    console.error('保存奖励规则失败:', error)
+    return false
+  }
+}
+
+/**
+ * 新增或更新奖励规则
+ * @param {Object} rule
+ * @returns {Object|null}
+ */
+export function upsertRewardRule(rule) {
+  const normalized = normalizeRewardRule(rule)
+  if (!normalized) {
+    return null
+  }
+
+  const list = getRewardRules()
+  const index = list.findIndex(item => item.id === normalized.id)
+
+  if (index >= 0) {
+    normalized.createTime = list[index].createTime
+    list[index] = normalized
+  } else {
+    list.unshift(normalized)
+  }
+
+  const success = saveRewardRules(list)
+  return success ? normalized : null
+}
+
+/**
+ * 删除奖励规则
+ * @param {string} ruleId
+ * @returns {boolean}
+ */
+export function deleteRewardRule(ruleId) {
+  if (!ruleId) return false
+
+  const list = getRewardRules().filter(item => item.id !== ruleId)
+  return saveRewardRules(list)
+}
+
+/**
+ * 获取启用中的奖励规则
+ * @returns {Array}
+ */
+export function getActiveRewardRules() {
+  return getRewardRules().filter(item => item.enabled !== false)
+}
+
+/**
+ * 获取奖励积分流水
+ * @returns {Array}
+ */
+export function getRewardPointsLog() {
+  try {
+    const data = uni.getStorageSync(STORAGE_KEYS.REWARD_POINTS_LOG)
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data
+      .map(normalizeRewardPointLog)
+      .filter(item => item && item.date)
+      .sort((a, b) => b.createTime - a.createTime)
+  } catch (error) {
+    console.error('读取奖励积分流水失败:', error)
+    return []
+  }
+}
+
+/**
+ * 保存奖励积分流水
+ * @param {Array} logs
+ * @returns {boolean}
+ */
+export function saveRewardPointsLog(logs) {
+  try {
+    const list = Array.isArray(logs)
+      ? logs.map(normalizeRewardPointLog).filter(item => item && item.date)
+      : []
+    uni.setStorageSync(STORAGE_KEYS.REWARD_POINTS_LOG, list)
+    return true
+  } catch (error) {
+    console.error('保存奖励积分流水失败:', error)
+    return false
+  }
+}
+
+/**
+ * 计算奖励积分统计
+ * @param {Array} logs
+ * @returns {Object}
+ */
+export function getRewardPointsOverview(logs = getRewardPointsLog()) {
+  return logs.reduce((result, item) => {
+    if (item.status === 'revoked') {
+      return result
+    }
+
+    if (item.status === 'pending') {
+      result.pendingPoints += item.points
+    } else {
+      result.confirmedPoints += item.points
+    }
+
+    result.totalPoints = result.confirmedPoints + result.pendingPoints
+    return result
+  }, {
+    confirmedPoints: 0,
+    pendingPoints: 0,
+    totalPoints: 0
+  })
+}
+
+/**
+ * 获取某一天的奖励积分
+ * @param {string} date
+ * @param {boolean} includeRevoked
+ * @returns {Array}
+ */
+export function getRewardPointsByDate(date, includeRevoked = false) {
+  if (!date) return []
+
+  const logs = getRewardPointsLog()
+  return logs.filter(item => {
+    if (item.date !== date) return false
+    if (!includeRevoked && item.status === 'revoked') return false
+    return true
+  })
+}
+
+/**
+ * 替换某天积分流水（用于同日重算）
+ * @param {string} date
+ * @param {Array} entries
+ * @returns {Object}
+ */
+export function replaceRewardPointsForDate(date, entries = []) {
+  if (!date) {
+    return getRewardPointsOverview()
+  }
+
+  const existing = getRewardPointsLog().filter(item => item.date !== date)
+  const normalizedEntries = Array.isArray(entries)
+    ? entries
+      .map(item => normalizeRewardPointLog({ ...item, date }))
+      .filter(Boolean)
+    : []
+
+  const next = existing.concat(normalizedEntries)
+  saveRewardPointsLog(next)
+  return getRewardPointsOverview(next)
+}
+
+/**
+ * 清空某天积分流水
+ * @param {string} date
+ * @returns {Object}
+ */
+export function clearRewardPointsByDate(date) {
+  if (!date) {
+    return getRewardPointsOverview()
+  }
+
+  const next = getRewardPointsLog().filter(item => item.date !== date)
+  saveRewardPointsLog(next)
+  return getRewardPointsOverview(next)
+}
+
+/**
+ * 撤销待确认积分
+ * @param {string} pointId
+ * @returns {Object}
+ */
+export function revokePendingRewardPoint(pointId) {
+  if (!pointId) {
+    return {
+      success: false,
+      error: '缺少积分记录标识'
+    }
+  }
+
+  const logs = getRewardPointsLog()
+  const index = logs.findIndex(item => item.id === pointId)
+
+  if (index < 0) {
+    return {
+      success: false,
+      error: '未找到对应的积分记录'
+    }
+  }
+
+  const target = logs[index]
+  if (target.status === 'revoked') {
+    return {
+      success: true,
+      entry: target,
+      stats: getRewardPointsOverview(logs)
+    }
+  }
+
+  logs[index] = {
+    ...target,
+    status: 'revoked',
+    manualOverride: true,
+    updateTime: Date.now()
+  }
+
+  saveRewardPointsLog(logs)
+  return {
+    success: true,
+    entry: logs[index],
+    stats: getRewardPointsOverview(logs)
   }
 }

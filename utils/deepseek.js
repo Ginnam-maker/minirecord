@@ -27,7 +27,7 @@ export function buildWeeklySummaryPrompt(recordsText) {
  * 获取请求参数
  * 根据 storage 配置生成不同 API 提供商的请求参数
  */
-function getApiConfig() {
+export function getApiConfig() {
   const type = uni.getStorageSync('ai_api_type') || 'default'
   const defaultKey = uni.getStorageSync('ai_api_key_default') || ''
   

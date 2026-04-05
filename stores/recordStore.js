@@ -8,7 +8,13 @@ import {
   saveSummary,
   getSummaryList,
   updateLastCheckTime,
-  isCheckedToday
+  isCheckedToday,
+  getActiveRewardRules,
+  replaceRewardPointsForDate,
+  clearRewardPointsByDate,
+  getRewardPointsOverview,
+  getRewardPointsByDate,
+  revokePendingRewardPoint
 } from '@/utils/storage.js'
 import { 
   generateWeeklySummary, 
@@ -16,6 +22,7 @@ import {
   formatDate,
   shouldAutoTrigger 
 } from '@/utils/deepseek.js'
+import { matchLogWithRules } from '@/utils/rewardEngine.js'
 
 export const useRecordStore = defineStore('record', () => {
   // 状态
@@ -23,6 +30,15 @@ export const useRecordStore = defineStore('record', () => {
   const summaries = ref([])
   const loading = ref(false)
   const currentDate = ref(formatDate(new Date()))
+  const rewardSnapshot = ref({
+    date: currentDate.value,
+    confirmedPoints: 0,
+    pendingPoints: 0,
+    pendingEntries: [],
+    message: '',
+    error: ''
+  })
+  const rewardOverview = ref(getRewardPointsOverview())
   
   // 计算属性 - 获取当前日期的记录
   const currentRecord = computed(() => {
@@ -40,6 +56,8 @@ export const useRecordStore = defineStore('record', () => {
   function init() {
     loadRecords()
     loadSummaries()
+    rewardOverview.value = getRewardPointsOverview()
+    loadRewardSnapshot(currentDate.value)
   }
   
   // 加载记录
@@ -53,13 +71,20 @@ export const useRecordStore = defineStore('record', () => {
   }
   
   // 保存记录
-  function saveRecord(date, content) {
+  async function saveRecord(date, content) {
     const success = saveRecordToStorage(date, content)
     if (success) {
       loadRecords()
-      return true
+      const rewardResult = await recomputeRewardsForDate(date, content)
+      return {
+        success: true,
+        reward: rewardResult
+      }
     }
-    return false
+    return {
+      success: false,
+      error: '保存失败'
+    }
   }
   
   // 删除记录
@@ -67,9 +92,134 @@ export const useRecordStore = defineStore('record', () => {
     const success = deleteRecordFromStorage(date)
     if (success) {
       loadRecords()
+      rewardOverview.value = clearRewardPointsByDate(date)
+      if (rewardSnapshot.value.date === date) {
+        loadRewardSnapshot(date)
+      }
       return true
     }
     return false
+  }
+
+  async function recomputeRewardsForDate(date, content) {
+    const text = String(content || '').trim()
+
+    if (!text) {
+      rewardOverview.value = clearRewardPointsByDate(date)
+      loadRewardSnapshot(date)
+      return {
+        success: true,
+        confirmedPoints: 0,
+        pendingPoints: 0,
+        totalPoints: 0,
+        pendingEntries: [],
+        message: '内容为空，未计算奖励'
+      }
+    }
+
+    const activeRules = getActiveRewardRules()
+    if (activeRules.length === 0) {
+      rewardOverview.value = clearRewardPointsByDate(date)
+      loadRewardSnapshot(date, {
+        message: '暂无启用规则'
+      })
+      return {
+        success: true,
+        confirmedPoints: 0,
+        pendingPoints: 0,
+        totalPoints: 0,
+        pendingEntries: [],
+        message: '暂无启用规则'
+      }
+    }
+
+    const matchResult = await matchLogWithRules(text, activeRules)
+    if (!matchResult.success) {
+      rewardSnapshot.value = {
+        ...rewardSnapshot.value,
+        date,
+        error: matchResult.error || '奖励匹配失败',
+        message: ''
+      }
+      return {
+        success: false,
+        error: matchResult.error || '奖励匹配失败'
+      }
+    }
+
+    rewardOverview.value = replaceRewardPointsForDate(date, matchResult.matchedEntries.map(entry => ({
+      date,
+      ruleId: entry.ruleId,
+      ruleText: entry.ruleText,
+      points: entry.points,
+      confidence: entry.confidence,
+      status: entry.status,
+      reason: entry.reason,
+      manualOverride: false,
+      createTime: Date.now(),
+      updateTime: Date.now()
+    })))
+
+    const dateLogs = getRewardPointsByDate(date)
+    const pendingEntries = dateLogs.filter(item => item.status === 'pending')
+    const confirmedPoints = dateLogs
+      .filter(item => item.status === 'confirmed')
+      .reduce((sum, item) => sum + item.points, 0)
+    const pendingPoints = pendingEntries.reduce((sum, item) => sum + item.points, 0)
+
+    rewardSnapshot.value = {
+      date,
+      confirmedPoints,
+      pendingPoints,
+      pendingEntries,
+      message: matchResult.matchedEntries.length > 0 ? '' : '未命中奖励规则',
+      error: ''
+    }
+
+    return {
+      success: true,
+      confirmedPoints,
+      pendingPoints,
+      totalPoints: confirmedPoints + pendingPoints,
+      pendingEntries,
+      message: matchResult.matchedEntries.length > 0 ? '' : '未命中奖励规则'
+    }
+  }
+
+  function loadRewardSnapshot(date, extras = {}) {
+    const logs = getRewardPointsByDate(date)
+    const pendingEntries = logs.filter(item => item.status === 'pending')
+    const confirmedPoints = logs
+      .filter(item => item.status === 'confirmed')
+      .reduce((sum, item) => sum + item.points, 0)
+    const pendingPoints = pendingEntries.reduce((sum, item) => sum + item.points, 0)
+
+    rewardSnapshot.value = {
+      date,
+      confirmedPoints,
+      pendingPoints,
+      pendingEntries,
+      message: '',
+      error: '',
+      ...extras
+    }
+  }
+
+  function revokePendingReward(pointId) {
+    const result = revokePendingRewardPoint(pointId)
+    if (!result.success) {
+      return result
+    }
+
+    rewardOverview.value = result.stats
+    if (result.entry?.date) {
+      loadRewardSnapshot(result.entry.date)
+    }
+
+    return {
+      ...result,
+      message: '已撤销待确认积分'
+    }
   }
   
   // 获取指定日期的记录
@@ -149,6 +299,8 @@ export const useRecordStore = defineStore('record', () => {
     currentDate,
     currentRecord,
     weekRecordCount,
+    rewardSnapshot,
+    rewardOverview,
     
     // 方法
     init,
@@ -156,6 +308,9 @@ export const useRecordStore = defineStore('record', () => {
     loadSummaries,
     saveRecord,
     deleteRecord,
+    recomputeRewardsForDate,
+    loadRewardSnapshot,
+    revokePendingReward,
     getRecordByDate,
     createWeeklySummary,
     checkAutoSummary,

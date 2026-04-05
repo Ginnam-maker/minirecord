@@ -39,11 +39,42 @@
           class="save-btn" 
           type="primary" 
           size="default"
-          :disabled="!inputText.trim()"
+          :loading="saving"
+          :disabled="saving || !inputText.trim()"
           @click="handleSave"
         >
           保存记录
         </button>
+      </view>
+
+      <view v-if="hasRewardFeedback" class="reward-feedback">
+        <view v-if="rewardSnapshot.confirmedPoints > 0" class="reward-row reward-confirmed">
+          <text>已确认奖励 +{{ rewardSnapshot.confirmedPoints }} 积分</text>
+        </view>
+
+        <view v-if="rewardSnapshot.pendingPoints > 0" class="reward-row reward-pending">
+          <text>待确认奖励 +{{ rewardSnapshot.pendingPoints }} 积分（虚线可撤销）</text>
+        </view>
+
+        <view
+          v-for="entry in rewardSnapshot.pendingEntries"
+          :key="entry.id"
+          class="pending-entry"
+        >
+          <view class="pending-text">
+            <text class="pending-rule">{{ entry.ruleText || '待确认规则' }}</text>
+            <text class="pending-confidence">置信度 {{ entry.confidence }}%</text>
+          </view>
+          <button class="pending-revoke-btn" size="mini" @click="handleRevokePending(entry)">撤销</button>
+        </view>
+
+        <view v-if="rewardSnapshot.message" class="reward-row reward-message">
+          <text>{{ rewardSnapshot.message }}</text>
+        </view>
+
+        <view v-if="rewardSnapshot.error" class="reward-row reward-error">
+          <text>奖励未计算：{{ rewardSnapshot.error }}</text>
+        </view>
       </view>
     </view>
     
@@ -101,6 +132,7 @@ const loadingPopup = ref(null)
 const currentDate = ref(formatDate(new Date()))
 const inputText = ref('')
 const selectedDates = ref([])
+const saving = ref(false)
 
 // 计算属性
 const currentDateText = computed(() => {
@@ -119,6 +151,21 @@ const historyList = computed(() => {
   return Object.values(records)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 30) // 只显示最近30条
+})
+
+const rewardSnapshot = computed(() => recordStore.rewardSnapshot)
+
+const hasRewardFeedback = computed(() => {
+  if (!rewardSnapshot.value || rewardSnapshot.value.date !== currentDate.value) {
+    return false
+  }
+
+  return Boolean(
+    rewardSnapshot.value.confirmedPoints > 0 ||
+    rewardSnapshot.value.pendingPoints > 0 ||
+    rewardSnapshot.value.message ||
+    rewardSnapshot.value.error
+  )
 })
 
 // 文本框样式
@@ -144,6 +191,7 @@ onMounted(() => {
   recordStore.init()
   loadCurrentRecord()
   updateSelectedDates()
+  recordStore.loadRewardSnapshot(currentDate.value)
   
   // 检查是否需要自动生成周总结
   if (recordStore.checkAutoSummary()) {
@@ -154,6 +202,7 @@ onMounted(() => {
 // 监听当前日期变化
 watch(() => currentDate.value, () => {
   loadCurrentRecord()
+  recordStore.loadRewardSnapshot(currentDate.value)
 })
 
 // 加载当前日期的记录
@@ -187,7 +236,7 @@ function onInputBlur() {
 }
 
 // 保存记录
-function handleSave() {
+async function handleSave() {
   if (!inputText.value.trim()) {
     uni.showToast({
       title: '请输入记录内容',
@@ -195,21 +244,49 @@ function handleSave() {
     })
     return
   }
-  
-  const success = recordStore.saveRecord(currentDate.value, inputText.value.trim())
-  
-  if (success) {
+
+  saving.value = true
+
+  const result = await recordStore.saveRecord(currentDate.value, inputText.value.trim())
+  saving.value = false
+
+  if (result.success) {
     uni.showToast({
       title: '保存成功',
       icon: 'success'
     })
     updateSelectedDates()
+
+    if (result.reward?.success === false) {
+      uni.showToast({
+        title: '记录已保存，奖励未计算',
+        icon: 'none'
+      })
+    }
   } else {
     uni.showToast({
       title: '保存失败，请重试',
       icon: 'none'
     })
   }
+}
+
+function handleRevokePending(entry) {
+  if (!entry?.id) return
+
+  const result = recordStore.revokePendingReward(entry.id)
+  if (!result.success) {
+    uni.showToast({
+      title: result.error || '撤销失败',
+      icon: 'none'
+    })
+    return
+  }
+
+  uni.showToast({
+    title: '已撤销该积分',
+    icon: 'success'
+  })
 }
 
 // 滑动操作点击
@@ -330,6 +407,72 @@ function showAutoSummaryTip() {
 .save-btn {
   background: linear-gradient(90deg, #007AFF 0%, #0066CC 100%);
   border-radius: 8px;
+}
+
+.reward-feedback {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7faff;
+}
+
+.reward-row {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reward-row + .reward-row {
+  margin-top: 6px;
+}
+
+.reward-confirmed {
+  color: #0b7a2f;
+}
+
+.reward-pending {
+  color: #9a6700;
+}
+
+.reward-message {
+  color: #666;
+}
+
+.reward-error {
+  color: #b42318;
+}
+
+.pending-entry {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed #f2b84b;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pending-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pending-rule {
+  font-size: 13px;
+  color: #8a5c00;
+}
+
+.pending-confidence {
+  font-size: 12px;
+  color: #a27a2f;
+  margin-top: 4px;
+}
+
+.pending-revoke-btn {
+  background-color: #fff;
+  color: #a15c00;
+  border: 1px solid #f2b84b;
 }
 
 .history-section {
