@@ -28,10 +28,16 @@ export function buildWeeklySummaryPrompt(recordsText) {
  * 根据 storage 配置生成不同 API 提供商的请求参数
  */
 function getApiConfig() {
-  const type = uni.getStorageSync('ai_api_type') || 'deepseek'
+  const type = uni.getStorageSync('ai_api_type') || 'default'
   const defaultKey = uni.getStorageSync('ai_api_key_default') || ''
   
-  if (type === 'custom') {
+  if (type === 'default') {
+    return {
+      baseURL: config.deepseek.baseURL || 'https://api.deepseek.com/v1',
+      apiKey: config.deepseek.apiKey || '',
+      model: config.deepseek.model || 'deepseek-chat'
+    }
+  } else if (type === 'custom') {
     return {
       baseURL: uni.getStorageSync('ai_custom_api_base_url') || '',
       apiKey: uni.getStorageSync('ai_custom_api_key') || '',
@@ -78,8 +84,12 @@ function getApiConfig() {
  */
 export async function generateWeeklySummary(records) {
   const apiConfig = getApiConfig()
+  const type = uni.getStorageSync('ai_api_type') || 'default'
   
   if (!apiConfig.apiKey) {
+    if (type === 'default') {
+      throw new Error('请先在 config.js 中配置 deepseek.apiKey')
+    }
     throw new Error('请先到设置页配置 API Key')
   }
   

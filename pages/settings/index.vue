@@ -13,7 +13,7 @@
     </view>
 
     <!-- 自定义 API 设置 -->
-    <view class="section" v-if="apiTypes[apiTypeIndex].value === 'custom'">
+    <view class="section" v-if="currentApiType === 'custom'">
       <text class="title">自定义 API 接口配置</text>
       <view class="settings-list">
         <view class="item-col">
@@ -31,8 +31,8 @@
       </view>
     </view>
 
-    <!-- Deepseek 等内置 API 的设置 -->
-    <view class="section" v-else>
+    <!-- 内置 API 的设置（默认模型不显示配置项） -->
+    <view class="section" v-else-if="currentApiType !== 'default'">
       <text class="title">{{ apiTypes[apiTypeIndex].name }} 配置</text>
       <view class="settings-list">
         <view class="item-col">
@@ -60,6 +60,7 @@ export default {
   data() {
     return {
       apiTypes: [
+        { name: '默认模型', value: 'default' },
         { name: 'DeepSeek', value: 'deepseek' },
         { name: 'Kimi (Moonshot)', value: 'moonshot' },
         { name: '阿里云 (通义千问)', value: 'qwen' },
@@ -75,12 +76,17 @@ export default {
       customPrompt: ''
     }
   },
+  computed: {
+    currentApiType() {
+      return this.apiTypes[this.apiTypeIndex]?.value || 'default'
+    }
+  },
   onLoad() {
     this.loadSettings()
   },
   methods: {
     loadSettings() {
-      const type = uni.getStorageSync('ai_api_type') || 'deepseek'
+      const type = uni.getStorageSync('ai_api_type') || 'default'
       const index = this.apiTypes.findIndex(item => item.value === type)
       this.apiTypeIndex = index >= 0 ? index : 0
       
