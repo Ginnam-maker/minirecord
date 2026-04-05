@@ -43,7 +43,7 @@
     </view>
 
     <view class="section">
-      <text class="title">自定义周总结 Prompt</text>
+      <text class="title">自定义Prompt</text>
       <view class="settings-list">
         <textarea class="textarea" v-model="customPrompt" placeholder="如果你想改变AI分析报告的倾向，可以在此修改（需包含 {{records}} 占位符）"></textarea>
       </view>
@@ -131,7 +131,7 @@ export default {
     resetDefaultSettings() {
       uni.showModal({
         title: '恢复默认设置',
-        content: '将恢复默认模型并重置周总结 Prompt，是否继续？',
+        content: '将恢复默认模型并重置Prompt，是否继续？',
         success: (res) => {
           if (!res.confirm) return
 
